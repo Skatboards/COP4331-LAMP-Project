@@ -1,173 +1,224 @@
 <?php
 // ============================================================
-//  api/index.php — Unified Colors Manager RESTful API
+//  api/index.php — Contact Manager REST API
 //
-//  GET    /api/index.php?ping=1   — status ping health check
-//  POST   /api/index.php (login)  — authenticate user
-//  GET    /api/index.php          — list all colors for user
-//  GET    /api/index.php?q=term   — partial search colors
-//  GET    /api/index.php?id=1     — get single color by ID
-//  POST   /api/index.php (color)  — create new color
-//  PUT    /api/index.php?id=1     — update color by ID
-//  DELETE /api/index.php?id=1     — delete color by ID
+//  GET    /api/index.php?ping=1    — status ping
+//  POST   /api/index.php (login)   — authenticate with username/password JSON
+//  GET    /api/index.php           — list the caller's contacts
+//  GET    /api/index.php?q=term    — search the caller's contacts
+//  GET    /api/index.php?id=1      — get one contact
+//  POST   /api/index.php (contact) — create a contact
+//  PUT    /api/index.php?id=1      — replace a contact
+//  DELETE /api/index.php?id=1      — delete a contact
 // ============================================================
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/helpers.php';
 
+/**
+ * Validates and normalizes a full contact representation from JSON/form data.
+ * First or last name is required; email and phone are optional.
+ */
+function readContactInput($body) {
+    $fields = [
+        'firstName'  => ['max' => 50],
+        'lastName'   => ['max' => 50],
+        'email'      => ['max' => 50],
+        'phoneNumber'=> ['max' => 20],
+    ];
+    $contact = [];
+
+    foreach ($fields as $field => $rules) {
+        $value = $body[$field] ?? '';
+        if (!is_string($value)) {
+            respond(400, ['error' => $field . ' must be a string']);
+        }
+
+        $value = clean($value);
+        if (strlen($value) > $rules['max']) {
+            respond(400, ['error' => $field . ' must be ' . $rules['max'] . ' characters or fewer']);
+        }
+        $contact[$field] = $value;
+    }
+
+    if ($contact['firstName'] === '' && $contact['lastName'] === '') {
+        respond(400, ['error' => 'At least one of firstName or lastName is required']);
+    }
+
+    return $contact;
+}
+
 setCORSHeaders();
 
 $method = $_SERVER['REQUEST_METHOD'];
-$db     = getDB();
 
-// 1. Unauthenticated Health Check (Ping)
+// Health check does not need a database connection.
 if ($method === 'GET' && (isset($_GET['ping']) || (isset($_GET['action']) && $_GET['action'] === 'ping'))) {
     respond(200, ['status' => 'OK', 'timestamp' => time()]);
 }
 
-// 2. Unauthenticated Login (POST with login & password in body)
+$db = getDB();
+
+// Login is the only unauthenticated POST operation. Credentials are JSON
+// fields named username and password and are matched against Users.Username.
 if ($method === 'POST') {
     $body = getRequestBody();
-    if (isset($body['login']) && isset($body['password'])) {
-        $login    = clean($body['login']);
-        $password = clean($body['password']);
+    if (array_key_exists('username', $body) || array_key_exists('password', $body)) {
+        $username = $body['username'] ?? '';
+        $password = $body['password'] ?? '';
 
-        if (!$login || !$password) {
-            respond(400, ['error' => 'Login and password are required']);
+        if (!is_string($username) || !is_string($password)) {
+            respond(400, ['error' => 'Username and password are required']);
+        }
+        $username = clean($username);
+        if ($username === '' || $password === '') {
+            respond(400, ['error' => 'Username and password are required']);
         }
 
-        $stmt = $db->prepare('SELECT ID, firstName, lastName FROM Users WHERE Login = :login AND Password = :pass LIMIT 1');
-        $stmt->execute([':login' => $login, ':pass' => $password]);
+        $stmt = $db->prepare(
+            'SELECT ID AS id, FirstName AS firstName, LastName AS lastName
+             FROM Users
+             WHERE Username = :username AND Password = :password
+             LIMIT 1'
+        );
+        $stmt->execute([':username' => $username, ':password' => $password]);
         $user = $stmt->fetch();
 
-        if ($user) {
-            respond(200, [
-                'id'        => (int) $user['ID'],
-                'firstName' => $user['firstName'],
-                'lastName'  => $user['lastName'],
-                'token'     => (string) $user['ID'],
-                'error'     => ''
-            ]);
-        } else {
-            respond(401, [
-                'id'        => 0,
-                'firstName' => '',
-                'lastName'  => '',
-                'error'     => 'No Records Found'
-            ]);
+        if (!$user) {
+            respond(401, ['error' => 'Invalid username or password']);
         }
+
+        $userId = (int) $user['id'];
+        respond(200, [
+            'id'        => $userId,
+            'firstName' => $user['firstName'],
+            'lastName'  => $user['lastName'],
+            'token'     => (string) $userId,
+        ]);
     }
 }
 
-// 3. All other routes require an authenticated user
+// Authentication identifies the caller. Contact ownership checks below are
+// kept at the resource layer so a role-based policy can be added independently.
 $userId = requireAuth();
 
 switch ($method) {
-
-    // ── GET: search, list, or single color ──────────────────
     case 'GET':
-        $id     = isset($_GET['id']) ? (int) $_GET['id'] : null;
-        $search = isset($_GET['q'])  ? trim($_GET['q'])  : (isset($_GET['search']) ? trim($_GET['search']) : null);
-
-        // Single color by ID
-        if ($id) {
-            $stmt = $db->prepare('SELECT ID as id, Name as name, UserID as user_id FROM Colors WHERE ID = :id AND UserID = :uid LIMIT 1');
-            $stmt->execute([':id' => $id, ':uid' => $userId]);
-            $color = $stmt->fetch();
-            if (!$color) {
-                respond(404, ['error' => 'Color not found']);
-            }
-            respond(200, $color);
-        }
-
-        // Search colors (partial match)
-        if ($search !== null && $search !== '') {
-            $like = '%' . $search . '%';
-            $stmt = $db->prepare('SELECT ID as id, Name as name FROM Colors WHERE UserID = :uid AND Name LIKE :q ORDER BY Name');
-            $stmt->execute([':uid' => $userId, ':q' => $like]);
-            $rows = $stmt->fetchAll();
-            $results = array_column($rows, 'name');
-            if (empty($results)) {
-                respond(200, ['results' => [], 'colors' => [], 'error' => 'No Records Found']);
-            }
-            respond(200, ['results' => $results, 'colors' => $rows, 'error' => '']);
-        }
-
-        // List all colors
-        $stmt = $db->prepare('SELECT ID as id, Name as name FROM Colors WHERE UserID = :uid ORDER BY Name');
-        $stmt->execute([':uid' => $userId]);
-        $rows = $stmt->fetchAll();
-        $results = array_column($rows, 'name');
-        if (empty($results)) {
-            respond(200, ['results' => [], 'colors' => [], 'error' => 'No Records Found']);
-        }
-        respond(200, ['results' => $results, 'colors' => $rows, 'error' => '']);
-        break;
-
-    // ── POST: create color ───────────────────────────────────
-    case 'POST':
-        $body  = getRequestBody();
-        $color = clean($body['color'] ?? $body['name'] ?? '');
-        if (!$color) {
-            respond(400, ['error' => 'Color name is required']);
-        }
-
-        $stmt = $db->prepare('INSERT INTO Colors (UserID, Name) VALUES (:uid, :name)');
-        $stmt->execute([':uid' => $userId, ':name' => $color]);
-
-        respond(201, [
-            'message' => 'Color created',
-            'id'      => (int) $db->lastInsertId(),
-            'error'   => ''
-        ]);
-        break;
-
-    // ── PUT: update color ─────────────────────────────────────
-    case 'PUT':
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-        if (!$id) {
-            respond(400, ['error' => 'Color ID is required — use ?id=']);
+        $search = isset($_GET['q']) ? trim($_GET['q']) : (isset($_GET['search']) ? trim($_GET['search']) : '');
+
+        if (isset($_GET['id']) && $id <= 0) {
+            respond(400, ['error' => 'Contact ID must be a positive integer']);
         }
 
-        $check = $db->prepare('SELECT ID FROM Colors WHERE ID = :id AND UserID = :uid LIMIT 1');
-        $check->execute([':id' => $id, ':uid' => $userId]);
-        if (!$check->fetch()) {
-            respond(404, ['error' => 'Color not found']);
-        }
-
-        $body  = getRequestBody();
-        $color = clean($body['color'] ?? $body['name'] ?? '');
-        if (!$color) {
-            respond(400, ['error' => 'Color name is required']);
-        }
-
-        $stmt = $db->prepare('UPDATE Colors SET Name = :name WHERE ID = :id AND UserID = :uid');
-        $stmt->execute([':name' => $color, ':id' => $id, ':uid' => $userId]);
-
-        respond(200, ['message' => 'Color updated', 'error' => '']);
-        break;
-
-    // ── DELETE: delete color ──────────────────────────────────
-    case 'DELETE':
-        $id   = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-        $name = isset($_GET['name']) ? clean($_GET['name']) : '';
+        $select = 'SELECT ID AS id, First_Name AS firstName, Last_Name AS lastName,
+                          Email AS email, Phone_Number AS phoneNumber
+                   FROM Contacts';
 
         if ($id > 0) {
-            $stmt = $db->prepare('DELETE FROM Colors WHERE ID = :id AND UserID = :uid');
-            $stmt->execute([':id' => $id, ':uid' => $userId]);
-        } elseif ($name !== '') {
-            $stmt = $db->prepare('DELETE FROM Colors WHERE Name = :name AND UserID = :uid LIMIT 1');
-            $stmt->execute([':name' => $name, ':uid' => $userId]);
+            $stmt = $db->prepare($select . ' WHERE ID = :id AND User_ID = :user_id LIMIT 1');
+            $stmt->execute([':id' => $id, ':user_id' => $userId]);
+            $contact = $stmt->fetch();
+            if (!$contact) {
+                respond(404, ['error' => 'Contact not found']);
+            }
+            respond(200, $contact);
+        }
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $stmt = $db->prepare(
+                $select . ' WHERE User_ID = :user_id
+                    AND (First_Name LIKE :first_name 
+                         OR Last_Name LIKE :last_name
+                         OR CONCAT(First_Name, CHAR(32), Last_Name) LIKE :full_name
+                         OR Email LIKE :email 
+                         OR Phone_Number LIKE :phone)
+                    ORDER BY Last_Name, First_Name, ID'
+            );
+            $stmt->execute([
+                ':user_id'   => $userId,
+                ':first_name'=> $like,
+                ':last_name' => $like,
+                ':full_name' => $like,
+                ':email'     => $like,
+                ':phone'     => $like,
+            ]);
         } else {
-            respond(400, ['error' => 'Color ID or Name is required — use ?id= or ?name=']);
+            $stmt = $db->prepare(
+                $select . ' WHERE User_ID = :user_id ORDER BY Last_Name, First_Name, ID'
+            );
+            $stmt->execute([':user_id' => $userId]);
         }
 
+        respond(200, ['contacts' => $stmt->fetchAll()]);
+
+    case 'POST':
+        $contact = readContactInput(getRequestBody());
+        $stmt = $db->prepare(
+            'INSERT INTO Contacts (First_Name, Last_Name, Email, Phone_Number, User_ID)
+             VALUES (:first_name, :last_name, :email, :phone, :user_id)'
+        );
+        $stmt->execute([
+            ':first_name' => $contact['firstName'],
+            ':last_name'  => $contact['lastName'],
+            ':email'      => $contact['email'],
+            ':phone'      => $contact['phoneNumber'],
+            ':user_id'    => $userId,
+        ]);
+
+        respond(201, ['message' => 'Contact created', 'id' => (int) $db->lastInsertId()]);
+
+    case 'PUT':
+        $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        if ($id <= 0) {
+            respond(400, ['error' => 'Contact ID is required — use ?id=']);
+        }
+
+        $check = $db->prepare(
+            'SELECT First_Name AS firstName, Last_Name AS lastName,
+                    Email AS email, Phone_Number AS phoneNumber
+             FROM Contacts WHERE ID = :id AND User_ID = :user_id LIMIT 1'
+        );
+        $check->execute([':id' => $id, ':user_id' => $userId]);
+        $existing = $check->fetch();
+        if (!$existing) {
+            respond(404, ['error' => 'Contact not found']);
+        }
+
+        // Omitted fields keep their stored values; explicitly supplied empty
+        // strings remain available to clear optional fields.
+        $contact = readContactInput(array_merge($existing, getRequestBody()));
+        $stmt = $db->prepare(
+            'UPDATE Contacts
+             SET First_Name = :first_name, Last_Name = :last_name,
+                 Email = :email, Phone_Number = :phone
+             WHERE ID = :id AND User_ID = :user_id'
+        );
+        $stmt->execute([
+            ':first_name' => $contact['firstName'],
+            ':last_name'  => $contact['lastName'],
+            ':email'      => $contact['email'],
+            ':phone'      => $contact['phoneNumber'],
+            ':id'         => $id,
+            ':user_id'    => $userId,
+        ]);
+
+        respond(200, ['message' => 'Contact updated']);
+
+    case 'DELETE':
+        $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        if ($id <= 0) {
+            respond(400, ['error' => 'Contact ID is required — use ?id=']);
+        }
+
+        $stmt = $db->prepare('DELETE FROM Contacts WHERE ID = :id AND User_ID = :user_id');
+        $stmt->execute([':id' => $id, ':user_id' => $userId]);
         if ($stmt->rowCount() === 0) {
-            respond(404, ['error' => 'Color not found']);
+            respond(404, ['error' => 'Contact not found']);
         }
 
-        respond(200, ['message' => 'Color deleted', 'error' => '']);
-        break;
+        respond(200, ['message' => 'Contact deleted']);
 
     default:
         respond(405, ['error' => 'Method not allowed']);
