@@ -3,7 +3,7 @@
 //  api/index.php — Contact Manager REST API
 //
 //  GET    /api/index.php?ping=1    — status ping
-//  POST   /api/index.php (login)   — authenticate with username/password JSON
+//  POST   /api/index.php           — action=login or action=createContact
 //  GET    /api/index.php           — list the caller's contacts
 //  GET    /api/index.php?q=term    — search the caller's contacts
 //  GET    /api/index.php?id=1      — get one contact
@@ -59,13 +59,16 @@ if ($method === 'GET' && (isset($_GET['ping']) || (isset($_GET['action']) && $_G
 
 $db = getDB();
 
-// Login is the only unauthenticated POST operation. Credentials are JSON
-// fields named username and password and are matched against Users.Username.
+$postBody = null;
+// The JSON action explicitly selects a POST operation, leaving room for
+// additional public actions such as registration without relying on payload shape.
 if ($method === 'POST') {
-    $body = getRequestBody();
-    if (array_key_exists('username', $body) || array_key_exists('password', $body)) {
-        $username = $body['username'] ?? '';
-        $password = $body['password'] ?? '';
+    $postBody = getRequestBody();
+    $postAction = $postBody['action'] ?? '';
+
+    if ($postAction === 'login') {
+        $username = $postBody['username'] ?? '';
+        $password = $postBody['password'] ?? '';
 
         if (!is_string($username) || !is_string($password)) {
             respond(400, ['error' => 'Username and password are required']);
@@ -95,6 +98,10 @@ if ($method === 'POST') {
             'lastName'  => $user['lastName'],
             'token'     => (string) $userId,
         ]);
+    }
+
+    if ($postAction !== 'createContact') {
+        respond(400, ['error' => 'POST action must be login or createContact']);
     }
 }
 
@@ -154,7 +161,7 @@ switch ($method) {
         respond(200, ['contacts' => $stmt->fetchAll()]);
 
     case 'POST':
-        $contact = readContactInput(getRequestBody());
+        $contact = readContactInput($postBody);
         $stmt = $db->prepare(
             'INSERT INTO Contacts (First_Name, Last_Name, Email, Phone_Number, User_ID)
              VALUES (:first_name, :last_name, :email, :phone, :user_id)'
