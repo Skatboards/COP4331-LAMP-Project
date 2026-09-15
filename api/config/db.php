@@ -18,11 +18,11 @@ function getDB() {
         loadEnv();
 
         $host    = getenv('DB_HOST')     ?: 'localhost';
-        $dbname  = getenv('DB_NAME')     ?: 'ColorsAppDB';
-        $user    = getenv('DB_USER')     ?: 'ColorsAppUser';
+        $dbname  = getenv('DB_NAME')     ?: 'ContactAppDB';
+        $user    = getenv('DB_USER')     ?: 'ContactAppUser';
         $pass    = getenv('DB_PASSWORD') !== false 
                      ? getenv('DB_PASSWORD') 
-                     : (getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
+                     : (getenv('DB_PASS') !== false ? getenv('DB_PASS') : 'WeLoveCOP4331!');
         $charset = getenv('DB_CHARSET')  ?: 'utf8mb4';
         $port    = getenv('DB_PORT')     ?: 3306;
 
