@@ -119,6 +119,42 @@ function clean($data) {
 }
 
 /**
+ * Validates and normalizes contact fields from JSON/form data.
+ * First or last name is required; email and phone are optional.
+ *
+ * @param array $body
+ * @return array
+ */
+function readContactInput($body) {
+    $fields = [
+        'firstName'   => ['max' => 50],
+        'lastName'    => ['max' => 50],
+        'email'       => ['max' => 50],
+        'phoneNumber' => ['max' => 20],
+    ];
+    $contact = [];
+
+    foreach ($fields as $field => $rules) {
+        $value = $body[$field] ?? '';
+        if (!is_string($value)) {
+            respond(400, ['error' => $field . ' must be a string']);
+        }
+
+        $value = clean($value);
+        if (strlen($value) > $rules['max']) {
+            respond(400, ['error' => $field . ' must be ' . $rules['max'] . ' characters or fewer']);
+        }
+        $contact[$field] = $value;
+    }
+
+    if ($contact['firstName'] === '' && $contact['lastName'] === '') {
+        respond(400, ['error' => 'At least one of firstName or lastName is required']);
+    }
+
+    return $contact;
+}
+
+/**
  * Requires authentication and returns the authenticated User ID.
  * Looks for user identification in headers, cookies, session, query parameters, or request body.
  * If unauthenticated, sends a 401 Unauthorized response and exits.
