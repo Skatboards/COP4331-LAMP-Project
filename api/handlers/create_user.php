@@ -4,6 +4,8 @@ $lastName = $body['lastName'] ?? '';
 $username = $body['username'] ?? '';
 $password = $body['password'] ?? '';
 
+
+// validation
 if (!is_string($firstName) || !is_string($lastName) ||
     !is_string($username) || !is_string($password)) {
     respond(400, ['error' => 'firstName, lastName, username, and password must be strings']);
@@ -17,6 +19,7 @@ if ($firstName === '' || $lastName === '' || $username === '' || $password === '
     respond(400, ['error' => 'First name, last name, username, and password are required']);
 }
 
+// size limits of columns (note: password is unhashed and size should be increased)
 $limits = [
     'firstName' => [$firstName, 50],
     'lastName'  => [$lastName, 50],
@@ -36,7 +39,7 @@ if ($check->fetch()) {
 }
 
 // The current schema stores Password as VARCHAR(50) and the existing login
-// handler compares it directly. Keep new accounts compatible with that schema.
+// handler compares it directly.
 $stmt = $db->prepare(
     'INSERT INTO Users (FirstName, LastName, Username, Password)
      VALUES (:first_name, :last_name, :username, :password)'
