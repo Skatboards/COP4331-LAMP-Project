@@ -22,8 +22,13 @@ if ($method === 'POST') {
         require __DIR__ . '/handlers/login.php';
     }
 
+    if ($action === 'register') {
+        $db = getDB();
+        require __DIR__ . '/handlers/create_user.php';
+    }
+
     if ($action !== 'createContact') {
-        respond(400, ['error' => 'POST action must be login or createContact']);
+        respond(400, ['error' => 'POST action must be login, register, or createContact']);
     }
 }
 
