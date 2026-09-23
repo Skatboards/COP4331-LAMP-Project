@@ -59,7 +59,7 @@ CREATE TABLE `Contacts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed Sample Users
-INSERT INTO `Users` (`FirstName`, `LastName`, `Username`, `Password`) VALUES
+INSERT INTO `Users` (`FirstName`, `LastName`, `Username`, `Password`, `Role`, `Is_Disabled`) VALUES
 ('Application', 'Administrator', 'root', '$2y$12$zbQYPTKFqRkOtfKZujRi4.DyPeHaofs3MMNuUYUS1NL5eDTo1mLwS', 'Admin', 0),
 ('Rick', 'Leinecker', 'RickL', '$2y$12$wlZ0l9FaR3xO03pG4fUALe2h1oaBQpyxu.WALt7MNfZOYojk11i0u', 'User', 0),
 ('Sam', 'Hill', 'SamH', '$2y$12$tgVfjk1AZTWE7PoZ6fizlOCMLUNd5ah8BEiRPX64d6uHuoDug1sL2', 'User', 0),
