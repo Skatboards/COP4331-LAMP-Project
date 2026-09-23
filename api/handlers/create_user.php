@@ -19,12 +19,12 @@ if ($firstName === '' || $lastName === '' || $username === '' || $password === '
     respond(400, ['error' => 'First name, last name, username, and password are required']);
 }
 
-// size limits of columns (note: password is unhashed and size should be increased)
+// Validate the plaintext password before hashing it for storage.
 $limits = [
     'firstName' => [$firstName, 50],
     'lastName'  => [$lastName, 50],
     'username'  => [$username, 50],
-    'password'  => [$password, 50],
+    'password'  => [$password, 200],
 ];
 foreach ($limits as $field => [$value, $maxLength]) {
     if (strlen($value) > $maxLength) {
@@ -38,17 +38,16 @@ if ($check->fetch()) {
     respond(409, ['error' => 'Username is already registered']);
 }
 
-// The current schema stores Password as VARCHAR(50) and the existing login
-// handler compares it directly.
+$passwordHash = password_hash($password, PASSWORD_DEFAULT);
 $stmt = $db->prepare(
-    'INSERT INTO Users (FirstName, LastName, Username, Password)
-     VALUES (:first_name, :last_name, :username, :password)'
+    "INSERT INTO Users (FirstName, LastName, Username, Password, Role, Is_Disabled)
+     VALUES (:first_name, :last_name, :username, :password, 'User', 0)"
 );
 $stmt->execute([
     ':first_name' => $firstName,
     ':last_name'  => $lastName,
     ':username'   => $username,
-    ':password'   => $password,
+    ':password'   => $passwordHash,
 ]);
 
 respond(201, [

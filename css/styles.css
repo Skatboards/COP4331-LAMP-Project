@@ -315,6 +315,9 @@ h1, h2, h3, .brand-title {
 .icon-button { border: 0; color: var(--text-muted); background: transparent; font-size: 1.1rem; }
 .icon-button:hover, .icon-button:focus-visible { color: var(--text-primary); }
 .form-actions { justify-content: flex-end; gap: 0.65rem; margin-top: 1.25rem; }
+.section-note { margin: 0.35rem 0 0; color: var(--text-muted); font-size: 0.82rem; }
+.admin-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.7fr); gap: 1.25rem; }
+.admin-contacts-card { margin-top: 1.25rem; }
 
 @media (max-width: 767.98px) {
     .auth-container { display: block; padding-top: 2.5rem; }
@@ -331,4 +334,5 @@ h1, h2, h3, .brand-title {
     .search-form .btn { width: 100%; }
     .contact-row { align-items: stretch; flex-direction: column; gap: 1rem; }
     .contact-actions .btn { flex: 1; }
+    .admin-grid { grid-template-columns: 1fr; }
 }
