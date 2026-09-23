@@ -33,6 +33,12 @@ if ($method === 'POST') {
         require __DIR__ . '/handlers/logout.php';
     }
 
+    if ($action === 'addDirectoryContact') {
+        $db = getDB();
+        $userId = requireAuth($db);
+        require __DIR__ . '/handlers/add_directory_contact.php';
+    }
+
     if ($action === 'createAdmin') {
         $db = getDB();
         $admin = requireAdmin($db);
@@ -40,7 +46,7 @@ if ($method === 'POST') {
     }
 
     if ($action !== 'createContact') {
-        respond(400, ['error' => 'POST action must be login, register, logout, or createContact']);
+        respond(400, ['error' => 'POST action must be login, register, logout, addDirectoryContact, or createContact']);
     }
 }
 
@@ -51,6 +57,9 @@ $userId = requireAuth($db);
 
 if ($method === 'GET') {
     $action = $_GET['action'] ?? '';
+    if ($action === 'directory') {
+        require __DIR__ . '/handlers/directory_contacts.php';
+    }
     if ($action === 'users' || $action === 'allContacts') {
         $admin = requireAdmin($db);
         require __DIR__ . ($action === 'users'

@@ -186,6 +186,7 @@ function readCookie() {
   const adminLink = getElement('adminLink');
   if (adminLink && userRole === 'Admin') adminLink.classList.remove('d-none');
   loadContacts();
+  loadDirectory();
 }
 
 function doLogout() {
@@ -375,6 +376,74 @@ function renderContacts(contacts) {
     item.append(details, actions);
     list.appendChild(item);
   });
+}
+
+function loadDirectory(query = '') {
+  const list = getElement('directoryList');
+  if (!list) return;
+  list.setAttribute('aria-busy', 'true');
+  showMessage('directoryStatus', 'Loading directory...', 'info');
+  const path = `?action=directory${query ? `&q=${encodeURIComponent(query)}` : ''}`;
+  apiRequest('GET', path)
+    .then((response) => {
+      renderDirectory(Array.isArray(response.contacts) ? response.contacts : []);
+      showMessage('directoryStatus', 'Directory updated.', 'info');
+    })
+    .catch((error) => showMessage('directoryStatus', error.message))
+    .finally(() => list.setAttribute('aria-busy', 'false'));
+}
+
+function renderDirectory(contacts) {
+  const list = getElement('directoryList');
+  if (!list) return;
+  list.replaceChildren();
+  if (contacts.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No directory contacts found.';
+    list.appendChild(empty);
+    return;
+  }
+
+  contacts.forEach((contact) => {
+    const item = document.createElement('article');
+    item.className = 'contact-row';
+    const details = document.createElement('div');
+    details.className = 'contact-details';
+    const name = document.createElement('h3');
+    name.className = 'contact-name';
+    name.textContent = [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unnamed contact';
+    details.appendChild(name);
+    [['Email', contact.email], ['Phone', contact.phoneNumber]].forEach(([label, value]) => {
+      if (!value) return;
+      const detail = document.createElement('p');
+      detail.className = 'contact-detail';
+      detail.textContent = `${label}: ${value}`;
+      details.appendChild(detail);
+    });
+
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'btn btn-primary btn-sm';
+    addButton.textContent = 'Add to my contacts';
+    addButton.setAttribute('aria-label', `Add ${name.textContent} to my contacts`);
+    addButton.addEventListener('click', () => addDirectoryContact(contact.id));
+
+    const actions = document.createElement('div');
+    actions.className = 'contact-actions';
+    actions.appendChild(addButton);
+    item.append(details, actions);
+    list.appendChild(item);
+  });
+}
+
+function addDirectoryContact(contactId) {
+  apiRequest('POST', '', { action: 'addDirectoryContact', contactId })
+    .then(() => {
+      showMessage('directoryStatus', 'Contact added to your list.', 'success');
+      loadContacts();
+    })
+    .catch((error) => showMessage('directoryStatus', error.message));
 }
 
 function initAdminPage() {

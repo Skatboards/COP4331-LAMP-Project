@@ -59,6 +59,26 @@
             </div>
         </section>
 
+        <section class="card glass-card dashboard-card directory-card" aria-labelledby="directoryTitle">
+            <div class="card-body">
+                <div class="toolbar">
+                    <div>
+                        <h2 id="directoryTitle" class="section-title">Contact directory</h2>
+                        <p id="directoryStatus" class="status-message" role="status" aria-live="polite"></p>
+                    </div>
+                    <form class="search-form" onsubmit="event.preventDefault(); loadDirectory(document.getElementById('directorySearch').value.trim());">
+                        <label for="directorySearch" class="visually-hidden">Search contact directory</label>
+                        <div class="search-input-wrap">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                            <input type="search" id="directorySearch" class="form-control" placeholder="Search the full directory" autocomplete="off">
+                        </div>
+                        <button type="submit" class="btn btn-outline-light">Search</button>
+                    </form>
+                </div>
+                <div id="directoryList" class="contact-list" aria-live="polite" aria-busy="false"></div>
+            </div>
+        </section>
+
         <section id="contactFormPanel" class="card glass-card form-card d-none" aria-labelledby="contactFormTitle">
             <div class="card-body">
                 <div class="form-card-heading">
