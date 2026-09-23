@@ -27,6 +27,12 @@ if ($method === 'POST') {
         require __DIR__ . '/handlers/create_user.php';
     }
 
+    if ($action === 'logout') {
+        $db = getDB();
+        $userId = requireAuth($db);
+        require __DIR__ . '/handlers/logout.php';
+    }
+
     if ($action === 'createAdmin') {
         $db = getDB();
         $admin = requireAdmin($db);
@@ -34,7 +40,7 @@ if ($method === 'POST') {
     }
 
     if ($action !== 'createContact') {
-        respond(400, ['error' => 'POST action must be login, register, or createContact']);
+        respond(400, ['error' => 'POST action must be login, register, logout, or createContact']);
     }
 }
 

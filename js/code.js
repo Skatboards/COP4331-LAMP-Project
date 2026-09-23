@@ -43,6 +43,7 @@ function setBusy(buttonId, busy, busyText) {
 function apiRequest(method, path = '', payload = null) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const authenticatedRequest = Boolean(authToken);
     xhr.open(method, urlBase + path, true);
     xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
     if (authToken) {
@@ -59,7 +60,12 @@ function apiRequest(method, path = '', payload = null) {
         return;
       }
       if (xhr.status === 401) {
-        doLogout();
+        if (authenticatedRequest) {
+          clearAuthState();
+          window.location.href = 'index.html';
+        } else {
+          reject(new Error(response.error || 'Invalid username or password.'));
+        }
         return;
       }
       if (xhr.status === 403) {
@@ -183,6 +189,24 @@ function readCookie() {
 }
 
 function doLogout() {
+  const token = authToken;
+  clearAuthState();
+
+  if (!token) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  authToken = token;
+  apiRequest('POST', '', { action: 'logout' })
+    .catch(() => {})
+    .finally(() => {
+      clearAuthState();
+      window.location.href = 'index.html';
+    });
+}
+
+function clearAuthState() {
   userId = 0;
   firstName = '';
   lastName = '';
@@ -191,7 +215,6 @@ function doLogout() {
   ['firstName', 'lastName', 'userId', 'authToken', 'userRole'].forEach((key) => {
     document.cookie = `${key}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
   });
-  window.location.href = 'index.html';
 }
 
 function contactPayload() {
