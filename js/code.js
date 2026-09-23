@@ -109,7 +109,7 @@ function doLogin() {
       userRole = response.role || 'User';
       if (!authToken) throw new Error('The server did not return an authentication token.');
       saveCookie();
-      window.location.href = 'color.html';
+      window.location.href = 'contacts.html';
     })
     .catch((error) => showMessage('authResult', error.message))
     .finally(() => setBusy('loginButton', false));
@@ -455,7 +455,7 @@ function addDirectoryContact(sourceType, sourceId) {
 function initAdminPage() {
   readCookie();
   if (userRole !== 'Admin') {
-    window.location.href = 'color.html';
+    window.location.href = 'contacts.html';
     return;
   }
   loadAdminUsers();
