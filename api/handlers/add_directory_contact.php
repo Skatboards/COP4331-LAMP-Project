@@ -1,16 +1,20 @@
 <?php
-$sourceId = filter_var($body['contactId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$sourceType = $body['sourceType'] ?? 'contact';
+$sourceId = filter_var($body['sourceId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 if (!$sourceId) {
-    respond(400, ['error' => 'contactId must be a positive integer']);
+    respond(400, ['error' => 'sourceId must be a positive integer']);
+}
+if (!in_array($sourceType, ['contact', 'user'], true)) {
+    respond(400, ['error' => 'sourceType must be contact or user']);
 }
 
-$source = $db->prepare(
-    'SELECT First_Name AS firstName, Last_Name AS lastName,
-            Email AS email, Phone_Number AS phoneNumber
-     FROM Contacts
-     WHERE ID = :id
-     LIMIT 1'
-);
+$source = $db->prepare($sourceType === 'user'
+    ? "SELECT FirstName AS firstName, LastName AS lastName,
+              '' AS email, '' AS phoneNumber
+    FROM Users WHERE ID = :id LIMIT 1"
+    : 'SELECT First_Name AS firstName, Last_Name AS lastName,
+              Email AS email, Phone_Number AS phoneNumber
+       FROM Contacts WHERE ID = :id LIMIT 1');
 $source->execute([':id' => $sourceId]);
 $contact = $source->fetch();
 if (!$contact) {

@@ -355,6 +355,12 @@ function renderContacts(contacts) {
       detail.textContent = `${label}: ${value}`;
       details.appendChild(detail);
     });
+    if (contact.username) {
+      const username = document.createElement('p');
+      username.className = 'contact-detail';
+      username.textContent = `Username: ${contact.username}`;
+      details.appendChild(username);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'contact-actions';
@@ -427,7 +433,7 @@ function renderDirectory(contacts) {
     addButton.className = 'btn btn-primary btn-sm';
     addButton.textContent = 'Add to my contacts';
     addButton.setAttribute('aria-label', `Add ${name.textContent} to my contacts`);
-    addButton.addEventListener('click', () => addDirectoryContact(contact.id));
+    addButton.addEventListener('click', () => addDirectoryContact(contact.directoryType, contact.sourceId));
 
     const actions = document.createElement('div');
     actions.className = 'contact-actions';
@@ -437,8 +443,8 @@ function renderDirectory(contacts) {
   });
 }
 
-function addDirectoryContact(contactId) {
-  apiRequest('POST', '', { action: 'addDirectoryContact', contactId })
+function addDirectoryContact(sourceType, sourceId) {
+  apiRequest('POST', '', { action: 'addDirectoryContact', sourceType, sourceId })
     .then(() => {
       showMessage('directoryStatus', 'Contact added to your list.', 'success');
       loadContacts();
