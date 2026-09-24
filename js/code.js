@@ -6,6 +6,7 @@ let userId = 0;
 let firstName = '';
 let lastName = '';
 let authToken = '';
+let userRole = 'User';
 let editingContactId = 0;
 
 function getElement(id) {
@@ -42,11 +43,11 @@ function setBusy(buttonId, busy, busyText) {
 function apiRequest(method, path = '', payload = null) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const authenticatedRequest = Boolean(authToken);
     xhr.open(method, urlBase + path, true);
     xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
-    if (userId > 0) {
-      xhr.setRequestHeader('Authorization', `Bearer ${authToken || userId}`);
-      xhr.setRequestHeader('X-User-Id', String(userId));
+    if (authToken) {
+      xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
     }
 
     xhr.onreadystatechange = function () {
@@ -59,7 +60,16 @@ function apiRequest(method, path = '', payload = null) {
         return;
       }
       if (xhr.status === 401) {
-        doLogout();
+        if (authenticatedRequest) {
+          clearAuthState();
+          window.location.href = 'index.html';
+        } else {
+          reject(new Error(response.error || 'Invalid username or password.'));
+        }
+        return;
+      }
+      if (xhr.status === 403) {
+        reject(new Error(response.error || 'You do not have permission to perform this action.'));
         return;
       }
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -96,8 +106,10 @@ function doLogin() {
       firstName = response.firstName || '';
       lastName = response.lastName || '';
       authToken = response.token || '';
+      userRole = response.role || 'User';
+      if (!authToken) throw new Error('The server did not return an authentication token.');
       saveCookie();
-      window.location.href = 'color.html';
+      window.location.href = 'contacts.html';
     })
     .catch((error) => showMessage('authResult', error.message))
     .finally(() => setBusy('loginButton', false));
@@ -150,6 +162,7 @@ function saveCookie() {
   document.cookie = `lastName=${encodeURIComponent(lastName)};expires=${expires};path=/;SameSite=Lax`;
   document.cookie = `userId=${userId};expires=${expires};path=/;SameSite=Lax`;
   document.cookie = `authToken=${encodeURIComponent(authToken)};expires=${expires};path=/;SameSite=Lax`;
+  document.cookie = `userRole=${encodeURIComponent(userRole)};expires=${expires};path=/;SameSite=Lax`;
 }
 
 function readCookie() {
@@ -162,25 +175,47 @@ function readCookie() {
   firstName = decodeURIComponent(cookies.firstName || '');
   lastName = decodeURIComponent(cookies.lastName || '');
   authToken = decodeURIComponent(cookies.authToken || '');
+  userRole = decodeURIComponent(cookies.userRole || 'User');
 
-  if (userId < 1) {
+  if (userId < 1 || !authToken) {
     window.location.href = 'index.html';
     return;
   }
   const userName = getElement('userName');
   if (userName) userName.textContent = `Logged in as ${firstName} ${lastName}`.trim();
+  const adminLink = getElement('adminLink');
+  if (adminLink && userRole === 'Admin') adminLink.classList.remove('d-none');
   loadContacts();
+  loadDirectory();
 }
 
 function doLogout() {
+  const token = authToken;
+  clearAuthState();
+
+  if (!token) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  authToken = token;
+  apiRequest('POST', '', { action: 'logout' })
+    .catch(() => {})
+    .finally(() => {
+      clearAuthState();
+      window.location.href = 'index.html';
+    });
+}
+
+function clearAuthState() {
   userId = 0;
   firstName = '';
   lastName = '';
   authToken = '';
-  ['firstName', 'lastName', 'userId', 'authToken'].forEach((key) => {
+  userRole = 'User';
+  ['firstName', 'lastName', 'userId', 'authToken', 'userRole'].forEach((key) => {
     document.cookie = `${key}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
   });
-  window.location.href = 'index.html';
 }
 
 function contactPayload() {
@@ -320,6 +355,12 @@ function renderContacts(contacts) {
       detail.textContent = `${label}: ${value}`;
       details.appendChild(detail);
     });
+    if (contact.username) {
+      const username = document.createElement('p');
+      username.className = 'contact-detail';
+      username.textContent = `Username: ${contact.username}`;
+      details.appendChild(username);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'contact-actions';
@@ -340,5 +381,212 @@ function renderContacts(contacts) {
     actions.append(editButton, deleteButton);
     item.append(details, actions);
     list.appendChild(item);
+  });
+}
+
+function loadDirectory(query = '') {
+  const list = getElement('directoryList');
+  if (!list) return;
+  list.setAttribute('aria-busy', 'true');
+  showMessage('directoryStatus', 'Loading directory...', 'info');
+  const path = `?action=directory${query ? `&q=${encodeURIComponent(query)}` : ''}`;
+  apiRequest('GET', path)
+    .then((response) => {
+      renderDirectory(Array.isArray(response.contacts) ? response.contacts : []);
+      showMessage('directoryStatus', 'Directory updated.', 'info');
+    })
+    .catch((error) => showMessage('directoryStatus', error.message))
+    .finally(() => list.setAttribute('aria-busy', 'false'));
+}
+
+function renderDirectory(contacts) {
+  const list = getElement('directoryList');
+  if (!list) return;
+  list.replaceChildren();
+  if (contacts.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No directory contacts found.';
+    list.appendChild(empty);
+    return;
+  }
+
+  contacts.forEach((contact) => {
+    const item = document.createElement('article');
+    item.className = 'contact-row';
+    const details = document.createElement('div');
+    details.className = 'contact-details';
+    const name = document.createElement('h3');
+    name.className = 'contact-name';
+    name.textContent = [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unnamed contact';
+    details.appendChild(name);
+    [['Email', contact.email], ['Phone', contact.phoneNumber]].forEach(([label, value]) => {
+      if (!value) return;
+      const detail = document.createElement('p');
+      detail.className = 'contact-detail';
+      detail.textContent = `${label}: ${value}`;
+      details.appendChild(detail);
+    });
+
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'btn btn-primary btn-sm';
+    addButton.textContent = 'Add to my contacts';
+    addButton.setAttribute('aria-label', `Add ${name.textContent} to my contacts`);
+    addButton.addEventListener('click', () => addDirectoryContact(contact.directoryType, contact.sourceId));
+
+    const actions = document.createElement('div');
+    actions.className = 'contact-actions';
+    actions.appendChild(addButton);
+    item.append(details, actions);
+    list.appendChild(item);
+  });
+}
+
+function addDirectoryContact(sourceType, sourceId) {
+  apiRequest('POST', '', { action: 'addDirectoryContact', sourceType, sourceId })
+    .then(() => {
+      showMessage('directoryStatus', 'Contact added to your list.', 'success');
+      loadContacts();
+    })
+    .catch((error) => showMessage('directoryStatus', error.message));
+}
+
+function initAdminPage() {
+  readCookie();
+  if (userRole !== 'Admin') {
+    window.location.href = 'contacts.html';
+    return;
+  }
+  loadAdminUsers();
+  loadAllContacts();
+}
+
+function loadAdminUsers(query = '') {
+  const path = `?action=users${query ? `&q=${encodeURIComponent(query)}` : ''}`;
+  apiRequest('GET', path)
+    .then((response) => renderUsers(Array.isArray(response.users) ? response.users : []))
+    .catch((error) => showMessage('adminStatus', error.message));
+}
+
+function renderUsers(users) {
+  const list = getElement('userList');
+  if (!list) return;
+  list.replaceChildren();
+  if (users.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No users found.';
+    list.appendChild(empty);
+    return;
+  }
+
+  users.forEach((user) => {
+    const row = document.createElement('article');
+    row.className = 'contact-row';
+    const details = document.createElement('div');
+    details.className = 'contact-details';
+    const name = document.createElement('h3');
+    name.className = 'contact-name';
+    name.textContent = `${user.firstName} ${user.lastName}`.trim() || 'Unnamed user';
+    const account = document.createElement('p');
+    account.className = 'contact-detail';
+    account.textContent = `${user.username} · ${user.role}${Number(user.isDisabled) ? ' · Disabled' : ''}`;
+    details.append(name, account);
+
+    const actions = document.createElement('div');
+    actions.className = 'contact-actions';
+    if (Number(user.id) !== userId) {
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'btn btn-outline-danger btn-sm';
+      toggle.textContent = Number(user.isDisabled) ? 'Enable' : 'Disable';
+      toggle.addEventListener('click', () => setUserDisabled(user.id, !Number(user.isDisabled)));
+      actions.appendChild(toggle);
+    }
+    const password = document.createElement('button');
+    password.type = 'button';
+    password.className = 'btn btn-outline-light btn-sm';
+    password.textContent = 'Change password';
+    password.addEventListener('click', () => changeUserPassword(user.id, name.textContent));
+    actions.appendChild(password);
+    row.append(details, actions);
+    list.appendChild(row);
+  });
+}
+
+function setUserDisabled(id, disabled) {
+  apiRequest('PUT', `?action=disableUser&id=${encodeURIComponent(id)}`, { disabled })
+    .then((response) => {
+      showMessage('adminStatus', response.message || 'User status updated.', 'success');
+      loadAdminUsers(getElement('userSearch')?.value.trim() || '');
+    })
+    .catch((error) => showMessage('adminStatus', error.message));
+}
+
+function changeUserPassword(id, name) {
+  const password = window.prompt(`New password for ${name}:`);
+  if (!password) return;
+  apiRequest('PUT', `?action=changePassword&id=${encodeURIComponent(id)}`, { password })
+    .then((response) => showMessage('adminStatus', response.message || 'Password updated.', 'success'))
+    .catch((error) => showMessage('adminStatus', error.message));
+}
+
+function createAdmin() {
+  const payload = {
+    action: 'createAdmin',
+    firstName: getElement('adminFirstName')?.value.trim() || '',
+    lastName: getElement('adminLastName')?.value.trim() || '',
+    username: getElement('adminUsername')?.value.trim() || '',
+    password: getElement('adminPassword')?.value || ''
+  };
+  if (!payload.firstName || !payload.lastName || !payload.username || !payload.password) {
+    showMessage('adminFormStatus', 'Complete every Admin account field.');
+    return;
+  }
+  apiRequest('POST', '', payload)
+    .then(() => {
+      getElement('adminForm')?.reset();
+      showMessage('adminFormStatus', 'Admin account created.', 'success');
+      loadAdminUsers();
+    })
+    .catch((error) => showMessage('adminFormStatus', error.message));
+}
+
+function loadAllContacts(query = '') {
+  const path = `?action=allContacts${query ? `&q=${encodeURIComponent(query)}` : ''}`;
+  apiRequest('GET', path)
+    .then((response) => renderAdminContacts(Array.isArray(response.contacts) ? response.contacts : []))
+    .catch((error) => showMessage('adminStatus', error.message));
+}
+
+function renderAdminContacts(contacts) {
+  const list = getElement('adminContactList');
+  if (!list) return;
+  list.replaceChildren();
+  if (contacts.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No contacts found.';
+    list.appendChild(empty);
+    return;
+  }
+  contacts.forEach((contact) => {
+    const row = document.createElement('article');
+    row.className = 'contact-row';
+    const details = document.createElement('div');
+    details.className = 'contact-details';
+    const name = document.createElement('h3');
+    name.className = 'contact-name';
+    name.textContent = [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unnamed contact';
+    const owner = document.createElement('p');
+    owner.className = 'contact-detail';
+    owner.textContent = `Owner: ${contact.username}`;
+    const contactInfo = document.createElement('p');
+    contactInfo.className = 'contact-detail';
+    contactInfo.textContent = [contact.email, contact.phoneNumber].filter(Boolean).join(' · ');
+    details.append(name, owner, contactInfo);
+    row.appendChild(details);
+    list.appendChild(row);
   });
 }

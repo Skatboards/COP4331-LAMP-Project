@@ -27,17 +27,46 @@ if ($method === 'POST') {
         require __DIR__ . '/handlers/create_user.php';
     }
 
+    if ($action === 'logout') {
+        $db = getDB();
+        $userId = requireAuth($db);
+        require __DIR__ . '/handlers/logout.php';
+    }
+
+    if ($action === 'addDirectoryContact') {
+        $db = getDB();
+        $userId = requireAuth($db);
+        require __DIR__ . '/handlers/add_directory_contact.php';
+    }
+
+    if ($action === 'createAdmin') {
+        $db = getDB();
+        $admin = requireAdmin($db);
+        require __DIR__ . '/handlers/create_admin.php';
+    }
+
     if ($action !== 'createContact') {
-        respond(400, ['error' => 'POST action must be login, register, or createContact']);
+        respond(400, ['error' => 'POST action must be login, register, logout, addDirectoryContact, or createContact']);
     }
 }
 
 // Authentication establishes the caller; each contact handler applies
 // resource ownership checks so authorization policy can be extended separately.
-$userId = requireAuth();
 $db = getDB();
+$userId = requireAuth($db);
 
 if ($method === 'GET') {
+    $action = $_GET['action'] ?? '';
+    if ($action === 'directory') {
+        require __DIR__ . '/handlers/directory_contacts.php';
+    }
+    if ($action === 'users' || $action === 'allContacts') {
+        $admin = requireAdmin($db);
+        require __DIR__ . ($action === 'users'
+            ? '/handlers/list_users.php'
+            : '/handlers/list_all_contacts.php');
+    }
+
     if (isset($_GET['id'])) {
         require __DIR__ . '/handlers/get_contact.php';
     }
@@ -55,6 +84,15 @@ if ($method === 'POST') {
 }
 
 if ($method === 'PUT') {
+    $action = $_GET['action'] ?? '';
+    if ($action === 'disableUser') {
+        $admin = requireAdmin($db);
+        require __DIR__ . '/handlers/disable_user.php';
+    }
+    if ($action === 'changePassword') {
+        $admin = requireAdmin($db);
+        require __DIR__ . '/handlers/update_user_password.php';
+    }
     require __DIR__ . '/handlers/update_contact.php';
 }
 

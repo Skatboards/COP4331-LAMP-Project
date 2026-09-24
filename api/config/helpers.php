@@ -154,85 +154,62 @@ function readContactInput($body) {
     return $contact;
 }
 
-/**
- * Requires authentication and returns the authenticated User ID.
- * Looks for user identification in headers, cookies, session, query parameters, or request body.
- * If unauthenticated, sends a 401 Unauthorized response and exits.
- *
- * @return int User ID
- */
-function requireAuth() {
-    $userId = null;
-
-    // 1. Check Authorization Header (Bearer token, raw ID, or JWT)
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] 
-        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] 
+function getBearerToken() {
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
         ?? (function_exists('apache_request_headers') ? (apache_request_headers()['Authorization'] ?? null) : null);
 
-    if ($authHeader) {
-        $token = trim(preg_replace('/^Bearer\s+/i', '', $authHeader));
-        if (is_numeric($token) && (int)$token > 0) {
-            $userId = (int)$token;
-        } else {
-            // Check if JWT payload contains userId, user_id, or sub
-            $parts = explode('.', $token);
-            if (count($parts) === 3) {
-                $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
-                if (is_array($payload)) {
-                    $userId = $payload['userId'] ?? $payload['user_id'] ?? $payload['id'] ?? $payload['sub'] ?? null;
-                }
-            }
-        }
+    if (!$authHeader) {
+        return null;
     }
 
-    // 2. Check X-User-Id or User-Id custom HTTP header
-    if (!$userId) {
-        $xUserId = $_SERVER['HTTP_X_USER_ID'] ?? $_SERVER['HTTP_USER_ID'] ?? null;
-        if ($xUserId && is_numeric($xUserId) && (int)$xUserId > 0) {
-            $userId = (int)$xUserId;
-        }
+    $token = trim(preg_replace('/^Bearer\s+/i', '', $authHeader));
+    return $token !== '' ? $token : null;
+}
+
+/**
+ * Requires a valid, unexpired bearer token and returns the authenticated User ID.
+ * Caller-supplied IDs and X-User-Id headers are intentionally ignored.
+ */
+function requireAuth($db) {
+    $token = getBearerToken();
+    if (!$token) {
+        respond(401, ['error' => 'Authentication token is required']);
     }
 
-    // 3. Check Cookie (userId or user_id)
-    if (!$userId && isset($_COOKIE['userId']) && is_numeric($_COOKIE['userId'])) {
-        $userId = (int)$_COOKIE['userId'];
-    } elseif (!$userId && isset($_COOKIE['user_id']) && is_numeric($_COOKIE['user_id'])) {
-        $userId = (int)$_COOKIE['user_id'];
+    $stmt = $db->prepare(
+        'SELECT u.ID AS id, u.Is_Disabled AS isDisabled
+         FROM User_Sessions s
+         INNER JOIN Users u ON u.ID = s.User_ID
+         WHERE s.Token_Hash = :token_hash
+           AND s.Expires_At > UTC_TIMESTAMP()
+         LIMIT 1'
+    );
+    $stmt->execute([':token_hash' => hash('sha256', $token)]);
+    $user = $stmt->fetch();
+
+    if (!$user || (int)$user['isDisabled'] === 1) {
+        respond(401, ['error' => 'Authentication is invalid or expired']);
     }
 
-    // 4. Check Session
-    if (!$userId) {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-            @session_start();
-        }
-        if (isset($_SESSION['userId']) && is_numeric($_SESSION['userId'])) {
-            $userId = (int)$_SESSION['userId'];
-        } elseif (isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id'])) {
-            $userId = (int)$_SESSION['user_id'];
-        }
+    return (int)$user['id'];
+}
+
+function requireAdmin($db) {
+    $userId = requireAuth($db);
+    $stmt = $db->prepare(
+        'SELECT ID AS id, FirstName AS firstName, LastName AS lastName,
+                Username AS username, Role AS role, Is_Disabled AS isDisabled
+         FROM Users
+         WHERE ID = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $userId]);
+    $user = $stmt->fetch();
+
+    if (!$user || $user['role'] !== 'Admin' || (int)$user['isDisabled'] === 1) {
+        respond(403, ['error' => 'Admin access is required']);
     }
 
-    // 5. Check Query Parameters (?userId= or ?user_id= or ?uid=)
-    if (!$userId) {
-        $qUserId = $_GET['userId'] ?? $_GET['user_id'] ?? $_GET['uid'] ?? null;
-        if ($qUserId && is_numeric($qUserId) && (int)$qUserId > 0) {
-            $userId = (int)$qUserId;
-        }
-    }
-
-    // 6. Check Request Body (userId or user_id)
-    if (!$userId) {
-        $body = getRequestBody();
-        $bUserId = $body['userId'] ?? $body['user_id'] ?? $body['uid'] ?? null;
-        if ($bUserId && is_numeric($bUserId) && (int)$bUserId > 0) {
-            $userId = (int)$bUserId;
-        }
-    }
-
-    // If still no valid numeric user ID, deny access with 401 Unauthorized
-    if (!$userId || (int)$userId <= 0) {
-        respond(401, ['error' => 'Unauthorized']);
-    }
-
-    return (int)$userId;
+    return $user;
 }

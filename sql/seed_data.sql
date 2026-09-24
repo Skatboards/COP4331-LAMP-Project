@@ -1,66 +1,33 @@
 -- ============================================================
 -- SQL Seed Script: seed_data.sql
--- Project: COP4331 LAMP Stack Demo (Colors Manager)
--- Description: Populates ColorsAppDB with initial Users & Colors.
+-- Project: COP4331 LAMP Contact Manager
+-- Description: Adds development users and contacts to ContactAppDB.
+-- Run after create_tables.sql on an empty database.
 -- ============================================================
 
-USE `ColorsAppDB`;
+USE `ContactAppDB`;
 
--- 1. Seed Sample Users
--- User 1: Rick Leinecker (Plaintext password for demonstration / testing)
-INSERT INTO `Users` (`FirstName`, `LastName`, `Login`, `Password`) 
-VALUES ('Rick', 'Leinecker', 'RickL', 'COP4331');
+INSERT INTO `Users` (`FirstName`, `LastName`, `Username`, `Password`, `Role`, `Is_Disabled`) VALUES
+('Application', 'Administrator', 'root', '$2y$12$zbQYPTKFqRkOtfKZujRi4.DyPeHaofs3MMNuUYUS1NL5eDTo1mLwS', 'Admin', 0),
+('Rick', 'Leinecker', 'RickL', '$2y$12$wlZ0l9FaR3xO03pG4fUALe2h1oaBQpyxu.WALt7MNfZOYojk11i0u', 'User', 0),
+('Sam', 'Hill', 'SamH', '$2y$12$tgVfjk1AZTWE7PoZ6fizlOCMLUNd5ah8BEiRPX64d6uHuoDug1sL2', 'User', 0),
+('Alex', 'Morgan', 'alex.morgan', '$2y$12$Ff5qQCjNvtyovRR3EfYOVObGvDnBhVISjv1l8oJnhzTHFfHluhgwW', 'User', 0),
+('Jamie', 'Nguyen', 'jamie.nguyen', '$2y$12$CCxSsALSVuHsSwdupJy8EeKPPDIVBzRxlKpo5V5mn5mR.ETZwALjS', 'User', 0),
+('Riley', 'Johnson', 'riley.johnson', '$2y$12$a69exHc6OFZrBsqAB7jV6.BA1bAWiSxip5vjR9uA5V0B6XRj.XERq', 'User', 0),
+('Casey', 'Park', 'casey.park', '$2y$12$DE8WZ0p4iREJ2Wn1X7H1LetFg9eHI02WMytbQnnUKdFYlnUBbO2IO', 'User', 0);
 
--- User 2: Sam Hill
-INSERT INTO `Users` (`FirstName`, `LastName`, `Login`, `Password`) 
-VALUES ('Sam', 'Hill', 'SamH', 'Test');
-
--- User 3: Rick Leinecker (MD5 hashed password example)
-INSERT INTO `Users` (`FirstName`, `LastName`, `Login`, `Password`) 
-VALUES ('Rick', 'Leinecker', 'RickL_MD5', '5832a71366768098cceb7095efb774f2');
-
--- User 4: Sam Hill (MD5 hashed password example)
-INSERT INTO `Users` (`FirstName`, `LastName`, `Login`, `Password`) 
-VALUES ('Sam', 'Hill', 'SamH_MD5', '0cbc6611f5540bd0809a388dc95a615b');
-
-
--- 2. Seed Initial Palette Colors for User ID 1 (RickL)
-INSERT INTO `Colors` (`Name`, `UserID`) VALUES 
-('Blue', 1),
-('White', 1),
-('Black', 1),
-('Magenta', 1),
-('Yellow', 1),
-('Cyan', 1),
-('Salmon', 1),
-('Chartreuse', 1),
-('Lime', 1),
-('Light Blue', 1),
-('Light Gray', 1),
-('Light Red', 1),
-('Light Green', 1),
-('Chiffon', 1),
-('Fuscia', 1),
-('Brown', 1),
-('Beige', 1);
-
--- 3. Seed Initial Palette Colors for User ID 3 (RickL_MD5)
-INSERT INTO `Colors` (`Name`, `UserID`) VALUES 
-('Blue', 3),
-('White', 3),
-('Black', 3),
-('Gray', 3),
-('Magenta', 3),
-('Yellow', 3),
-('Cyan', 3),
-('Salmon', 3),
-('Chartreuse', 3),
-('Lime', 3),
-('Light Blue', 3),
-('Light Gray', 3),
-('Light Red', 3),
-('Light Green', 3),
-('Chiffon', 3),
-('Fuscia', 3),
-('Brown', 3),
-('Beige', 3);
+INSERT INTO `Contacts` (`First_Name`, `Last_Name`, `Email`, `Phone_Number`, `User_ID`) VALUES
+('Rick', 'Leinecker', 'rick.leinecker@example.test', '4075550101', 2),
+('Sam', 'Hill', 'sam.hill@example.test', '4075550102', 3),
+('Avery', 'Stone', 'avery.stone@example.test', '4075550103', 4),
+('Taylor', 'Brooks', 'taylor.brooks@example.test', '4075550104', 4),
+('Casey', 'Quinn', 'casey.quinn@example.test', '4075550105', 4),
+('Jordan', 'Lee', 'jordan.lee@example.test', '4075550106', 5),
+('Morgan', 'Chen', 'morgan.chen@example.test', '4075550107', 5),
+('Skyler', 'Patel', 'skyler.patel@example.test', '4075550108', 5),
+('Alex', 'Rivera', 'alex.rivera@example.test', '4075550109', 6),
+('Quinn', 'Davis', 'quinn.davis@example.test', '4075550110', 6),
+('Samira', 'Khan', 'samira.khan@example.test', '4075550111', 6),
+('Drew', 'Wilson', 'drew.wilson@example.test', '4075550112', 7),
+('Avery', 'Chen', 'avery.chen@example.test', '4075550113', 7),
+('Robin', 'Taylor', 'robin.taylor@example.test', '4075550114', 7);
