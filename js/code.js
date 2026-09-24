@@ -2,237 +2,343 @@ const urlBase = (typeof window !== 'undefined' && window.location && (window.loc
   ? '/api/index.php'
   : 'https://lamp.shrimpflip.store/api/index.php';
 
-const loginUrlBase = urlBase;
-
 let userId = 0;
-let firstName = "";
-let lastName = "";
+let firstName = '';
+let lastName = '';
+let authToken = '';
+let editingContactId = 0;
 
-function doLogin() {
-  userId = 0;
-  firstName = "";
-  lastName = "";
+function getElement(id) {
+  return document.getElementById(id);
+}
 
-  let loginInput = document.getElementById("loginName");
-  let passwordInput = document.getElementById("loginPassword");
-  let login = loginInput ? loginInput.value.trim() : "";
-  let password = passwordInput ? passwordInput.value.trim() : "";
+function showMessage(id, message, type = 'error') {
+  const element = getElement(id);
+  if (!element) return;
+  element.className = `status-message status-${type}`;
+  element.textContent = message;
+}
 
-  document.getElementById("loginResult").innerHTML = "";
+function clearMessage(id) {
+  const element = getElement(id);
+  if (!element) return;
+  element.className = 'status-message';
+  element.textContent = '';
+}
 
-  let jsonPayload = JSON.stringify({ login: login, password: password });
-  let url = loginUrlBase;
+function setBusy(buttonId, busy, busyText) {
+  const button = getElement(buttonId);
+  if (!button) return;
+  if (busy) {
+    button.dataset.defaultText = button.textContent.trim();
+    button.disabled = true;
+    button.textContent = busyText;
+  } else {
+    button.disabled = false;
+    button.textContent = button.dataset.defaultText || button.textContent;
+  }
+}
 
-  let xhr = new XMLHttpRequest();
-  xhr.open("POST", url, true);
-  xhr.setRequestHeader("Content-type", "application/json; charset=UTF-8");
-  try {
+function apiRequest(method, path = '', payload = null) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, urlBase + path, true);
+    xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
+    if (userId > 0) {
+      xhr.setRequestHeader('Authorization', `Bearer ${authToken || userId}`);
+      xhr.setRequestHeader('X-User-Id', String(userId));
+    }
+
     xhr.onreadystatechange = function () {
-      if (this.readyState === 4) {
-        if (this.status === 200) {
-          let jsonObject = JSON.parse(xhr.responseText);
-          userId = jsonObject.id;
-
-          if (userId < 1) {
-            document.getElementById("loginResult").innerHTML =
-              "<i class='bi bi-exclamation-circle-fill me-1'></i> User/Password combination incorrect";
-            return;
-          }
-
-          firstName = jsonObject.firstName;
-          lastName = jsonObject.lastName;
-
-          saveCookie();
-          window.location.href = "color.html";
-        } else {
-          document.getElementById("loginResult").innerHTML =
-            "<i class='bi bi-exclamation-circle-fill me-1'></i> Login failed";
-        }
+      if (xhr.readyState !== 4) return;
+      let response = {};
+      try {
+        response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+      } catch (error) {
+        reject(new Error('The server returned an invalid response.'));
+        return;
+      }
+      if (xhr.status === 401) {
+        doLogout();
+        return;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(response);
+      } else {
+        reject(new Error(response.error || 'The request could not be completed.'));
       }
     };
-    xhr.send(jsonPayload);
-  } catch (err) {
-    document.getElementById("loginResult").innerHTML = err.message;
+    xhr.onerror = function () {
+      reject(new Error('Unable to connect to the server.'));
+    };
+    try {
+      xhr.send(payload === null ? null : JSON.stringify(payload));
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function doLogin() {
+  const username = getElement('loginName')?.value.trim() || '';
+  const password = getElement('loginPassword')?.value || '';
+  clearMessage('authResult');
+  if (!username || !password) {
+    showMessage('authResult', 'Enter your username and password.');
+    return;
   }
+
+  setBusy('loginButton', true, 'Signing in...');
+  apiRequest('POST', '', { action: 'login', username, password })
+    .then((response) => {
+      userId = Number(response.id) || 0;
+      if (userId < 1) throw new Error('The username or password is incorrect.');
+      firstName = response.firstName || '';
+      lastName = response.lastName || '';
+      authToken = response.token || '';
+      saveCookie();
+      window.location.href = 'color.html';
+    })
+    .catch((error) => showMessage('authResult', error.message))
+    .finally(() => setBusy('loginButton', false));
+}
+
+function doRegister() {
+  const first = getElement('registerFirstName')?.value.trim() || '';
+  const last = getElement('registerLastName')?.value.trim() || '';
+  const username = getElement('registerUsername')?.value.trim() || '';
+  const password = getElement('registerPassword')?.value || '';
+  clearMessage('authResult');
+  if (!first || !last || !username || !password) {
+    showMessage('authResult', 'Complete all registration fields.');
+    return;
+  }
+
+  setBusy('registerButton', true, 'Creating account...');
+  apiRequest('POST', '', {
+    action: 'register',
+    firstName: first,
+    lastName: last,
+    username,
+    password
+  })
+    .then(() => {
+      showLogin();
+      showMessage('authResult', 'Account created. You can sign in now.', 'success');
+    })
+    .catch((error) => showMessage('authResult', error.message))
+    .finally(() => setBusy('registerButton', false));
+}
+
+function showLogin() {
+  getElement('loginPanel')?.classList.remove('d-none');
+  getElement('registerPanel')?.classList.add('d-none');
+  getElement('loginName')?.focus();
+  clearMessage('authResult');
+}
+
+function showRegister() {
+  getElement('loginPanel')?.classList.add('d-none');
+  getElement('registerPanel')?.classList.remove('d-none');
+  getElement('registerFirstName')?.focus();
+  clearMessage('authResult');
 }
 
 function saveCookie() {
-  let minutes = 20;
-  let date = new Date();
-  date.setTime(date.getTime() + minutes * 60 * 1000);
-  document.cookie =
-    "firstName=" +
-    encodeURIComponent(firstName) +
-    ",lastName=" +
-    encodeURIComponent(lastName) +
-    ",userId=" +
-    userId +
-    ";expires=" +
-    date.toGMTString() +
-    ";path=/";
+  const expires = new Date(Date.now() + 20 * 60 * 1000).toUTCString();
+  document.cookie = `firstName=${encodeURIComponent(firstName)};expires=${expires};path=/;SameSite=Lax`;
+  document.cookie = `lastName=${encodeURIComponent(lastName)};expires=${expires};path=/;SameSite=Lax`;
+  document.cookie = `userId=${userId};expires=${expires};path=/;SameSite=Lax`;
+  document.cookie = `authToken=${encodeURIComponent(authToken)};expires=${expires};path=/;SameSite=Lax`;
 }
 
 function readCookie() {
-  userId = -1;
-  let data = document.cookie;
-  let splits = data.split(";");
-  for (var i = 0; i < splits.length; i++) {
-    let pair = splits[i].trim();
-    let tokens = pair.split(",");
-    for (var j = 0; j < tokens.length; j++) {
-      let keyVal = tokens[j].trim().split("=");
-      if (keyVal[0] === "firstName") {
-        firstName = decodeURIComponent(keyVal[1] || "");
-      } else if (keyVal[0] === "lastName") {
-        lastName = decodeURIComponent(keyVal[1] || "");
-      } else if (keyVal[0] === "userId") {
-        userId = parseInt(keyVal[1].trim());
-      }
-    }
-  }
+  const cookies = document.cookie.split(';').reduce((result, item) => {
+    const [key, ...value] = item.trim().split('=');
+    if (key) result[key] = value.join('=');
+    return result;
+  }, {});
+  userId = Number(cookies.userId) || 0;
+  firstName = decodeURIComponent(cookies.firstName || '');
+  lastName = decodeURIComponent(cookies.lastName || '');
+  authToken = decodeURIComponent(cookies.authToken || '');
 
-  if (userId < 0 || isNaN(userId)) {
-    window.location.href = "index.html";
-  } else {
-    let userNameEl = document.getElementById("userName");
-    if (userNameEl) {
-      userNameEl.innerHTML = `<i class="bi bi-person-circle me-1 text-primary"></i> <span>Logged in as <strong class="text-white">${firstName} ${lastName}</strong></span>`;
-    }
-    searchColor();
+  if (userId < 1) {
+    window.location.href = 'index.html';
+    return;
   }
+  const userName = getElement('userName');
+  if (userName) userName.textContent = `Logged in as ${firstName} ${lastName}`.trim();
+  loadContacts();
 }
 
 function doLogout() {
   userId = 0;
-  firstName = "";
-  lastName = "";
-  document.cookie = "firstName=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-  document.cookie = "lastName=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-  document.cookie = "userId=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-  window.location.href = "index.html";
+  firstName = '';
+  lastName = '';
+  authToken = '';
+  ['firstName', 'lastName', 'userId', 'authToken'].forEach((key) => {
+    document.cookie = `${key}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+  });
+  window.location.href = 'index.html';
 }
 
-function addColor() {
-  let newColorInput = document.getElementById("colorText");
-  let newColor = newColorInput ? newColorInput.value.trim() : "";
-  let resultEl = document.getElementById("colorAddResult");
-  resultEl.innerHTML = "";
+function contactPayload() {
+  return {
+    firstName: getElement('contactFirstName')?.value.trim() || '',
+    lastName: getElement('contactLastName')?.value.trim() || '',
+    email: getElement('contactEmail')?.value.trim() || '',
+    phoneNumber: getElement('contactPhone')?.value.trim() || ''
+  };
+}
 
-  if (!newColor) {
-    resultEl.className = "text-warning small fw-semibold";
-    resultEl.innerHTML = "<i class='bi bi-exclamation-triangle-fill me-1'></i> Please enter a color name";
+function validateContact(contact) {
+  if (!contact.firstName && !contact.lastName) return 'Enter a first name or last name.';
+  if (contact.firstName.length > 50 || contact.lastName.length > 50) return 'Names must be 50 characters or fewer.';
+  if (contact.email.length > 50) return 'Email must be 50 characters or fewer.';
+  if (contact.phoneNumber.length > 20) return 'Phone number must be 20 characters or fewer.';
+  return '';
+}
+
+function loadContacts() {
+  searchContacts(getElement('searchText')?.value.trim() || '');
+}
+
+function searchContacts(query = '') {
+  const results = getElement('contactList');
+  if (!results) return;
+  results.setAttribute('aria-busy', 'true');
+  showMessage('contactStatus', 'Loading contacts...', 'info');
+  const path = query ? `?q=${encodeURIComponent(query)}` : '';
+  apiRequest('GET', path)
+    .then((response) => {
+      renderContacts(Array.isArray(response.contacts) ? response.contacts : []);
+      showMessage('contactStatus', query ? 'Search results updated.' : 'Contacts updated.', 'info');
+    })
+    .catch((error) => showMessage('contactStatus', error.message))
+    .finally(() => results.setAttribute('aria-busy', 'false'));
+}
+
+function createContact() {
+  saveContact('POST', 'Contact added.');
+}
+
+function updateContact() {
+  saveContact('PUT', 'Contact updated.');
+}
+
+function saveContact(method, successMessage) {
+  const contact = contactPayload();
+  const validationError = validateContact(contact);
+  if (validationError) {
+    showMessage('contactFormStatus', validationError);
+    return;
+  }
+  setBusy('saveContactButton', true, 'Saving...');
+  const path = method === 'PUT' ? `?id=${encodeURIComponent(editingContactId)}` : '';
+  const payload = method === 'POST' ? { ...contact, action: 'createContact' } : contact;
+  apiRequest(method, path, payload)
+    .then(() => {
+      showMessage('contactFormStatus', successMessage, 'success');
+      closeContactForm();
+      loadContacts();
+    })
+    .catch((error) => showMessage('contactFormStatus', error.message))
+    .finally(() => setBusy('saveContactButton', false));
+}
+
+function openCreateContact() {
+  editingContactId = 0;
+  getElement('contactForm')?.reset();
+  getElement('contactFormTitle').textContent = 'Add contact';
+  getElement('saveContactButton').textContent = 'Add contact';
+  clearMessage('contactFormStatus');
+  getElement('contactFormPanel')?.classList.remove('d-none');
+  getElement('contactFirstName')?.focus();
+}
+
+function openEditContact(id) {
+  apiRequest('GET', `?id=${encodeURIComponent(id)}`)
+    .then((response) => {
+      const contact = response.contact || (Array.isArray(response.contacts) ? response.contacts[0] : null);
+      if (!contact) throw new Error('Contact not found.');
+      editingContactId = Number(contact.id || id);
+      getElement('contactFirstName').value = contact.firstName || '';
+      getElement('contactLastName').value = contact.lastName || '';
+      getElement('contactEmail').value = contact.email || '';
+      getElement('contactPhone').value = contact.phoneNumber || '';
+      getElement('contactFormTitle').textContent = 'Edit contact';
+      getElement('saveContactButton').textContent = 'Save changes';
+      clearMessage('contactFormStatus');
+      getElement('contactFormPanel')?.classList.remove('d-none');
+      getElement('contactFirstName')?.focus();
+    })
+    .catch((error) => showMessage('contactStatus', error.message));
+}
+
+function closeContactForm() {
+  editingContactId = 0;
+  getElement('contactFormPanel')?.classList.add('d-none');
+}
+
+function deleteContact(id, name) {
+  if (!window.confirm(`Delete ${name || 'this contact'}?`)) return;
+  apiRequest('DELETE', `?id=${encodeURIComponent(id)}`)
+    .then(() => {
+      showMessage('contactStatus', 'Contact deleted.', 'success');
+      loadContacts();
+    })
+    .catch((error) => showMessage('contactStatus', error.message));
+}
+
+function renderContacts(contacts) {
+  const list = getElement('contactList');
+  if (!list) return;
+  list.replaceChildren();
+  if (contacts.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No contacts found. Add your first contact to get started.';
+    list.appendChild(empty);
     return;
   }
 
-  let jsonPayload = JSON.stringify({ color: newColor });
-  let url = urlBase;
+  contacts.forEach((contact) => {
+    const item = document.createElement('article');
+    item.className = 'contact-row';
+    const details = document.createElement('div');
+    details.className = 'contact-details';
+    const name = document.createElement('h3');
+    name.className = 'contact-name';
+    name.textContent = [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unnamed contact';
+    details.appendChild(name);
 
-  let xhr = new XMLHttpRequest();
-  xhr.open("POST", url, true);
-  xhr.setRequestHeader("Content-type", "application/json; charset=UTF-8");
-  xhr.setRequestHeader("Authorization", "Bearer " + userId);
-  xhr.setRequestHeader("X-User-Id", userId);
+    [['Email', contact.email], ['Phone', contact.phoneNumber]].forEach(([label, value]) => {
+      if (!value) return;
+      const detail = document.createElement('p');
+      detail.className = 'contact-detail';
+      detail.textContent = `${label}: ${value}`;
+      details.appendChild(detail);
+    });
 
-  try {
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4) {
-        if (this.status === 201 || this.status === 200) {
-          resultEl.className = "text-success-wcag small fw-semibold";
-          resultEl.innerHTML = "<i class='bi bi-check-circle-fill me-1'></i> Color successfully added!";
-          newColorInput.value = "";
-          searchColor();
-        } else {
-          try {
-            let res = JSON.parse(xhr.responseText);
-            resultEl.className = "text-danger-wcag small fw-semibold";
-            resultEl.innerHTML = res.error || "Failed to add color";
-          } catch (e) {
-            resultEl.className = "text-danger-wcag small fw-semibold";
-            resultEl.innerHTML = "Error adding color";
-          }
-        }
-      }
-    };
-    xhr.send(jsonPayload);
-  } catch (err) {
-    resultEl.className = "text-danger-wcag small fw-semibold";
-    resultEl.innerHTML = err.message;
-  }
-}
+    const actions = document.createElement('div');
+    actions.className = 'contact-actions';
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'btn btn-outline-light btn-sm';
+    editButton.textContent = 'Edit';
+    editButton.setAttribute('aria-label', `Edit ${name.textContent}`);
+    editButton.addEventListener('click', () => openEditContact(contact.id));
 
-function searchColor() {
-  let srchInput = document.getElementById("searchText");
-  let srch = srchInput ? srchInput.value.trim() : "";
-  let resultSpan = document.getElementById("colorSearchResult");
-  resultSpan.innerHTML = "";
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'btn btn-outline-danger btn-sm';
+    deleteButton.textContent = 'Delete';
+    deleteButton.setAttribute('aria-label', `Delete ${name.textContent}`);
+    deleteButton.addEventListener('click', () => deleteContact(contact.id, name.textContent));
 
-  let url = urlBase + (srch ? ("?q=" + encodeURIComponent(srch)) : "");
-
-  let xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
-  xhr.setRequestHeader("Authorization", "Bearer " + userId);
-  xhr.setRequestHeader("X-User-Id", userId);
-
-  try {
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4 && this.status === 200) {
-        resultSpan.innerHTML = "<i class='bi bi-check-circle me-1'></i> Results updated";
-        let jsonObject = JSON.parse(xhr.responseText);
-        let targetP = document.getElementById("colorList") || document.getElementsByTagName("p")[0];
-
-        let colors = jsonObject.colors || [];
-        if (colors.length === 0 && Array.isArray(jsonObject.results) && jsonObject.results.length > 0) {
-          colors = jsonObject.results.map(name => ({ id: null, name: name }));
-        }
-
-        if (colors.length === 0 || jsonObject.error === "No Records Found") {
-          if (targetP) targetP.innerHTML = `<div class="text-secondary-contrast small italic py-2"><i class="bi bi-info-circle me-1"></i> No matching colors found.</div>`;
-          return;
-        }
-
-        let colorList = "";
-        for (let i = 0; i < colors.length; i++) {
-          let c = colors[i];
-          let colorName = typeof c === 'string' ? c : c.name;
-          let colorId = (typeof c === 'object' && c.id) ? c.id : null;
-
-          colorList += `<span class="badge rounded-pill bg-dark-subtle text-body border border-secondary px-3 py-2 fs-6 shadow-sm d-inline-flex align-items-center me-2 mb-2">
-            <span class="d-inline-block rounded-circle me-2 border" style="width: 14px; height: 14px; background-color: ${colorName};"></span>
-            <span class="me-2">${colorName}</span>
-            <button type="button" class="btn-close btn-close-white" style="font-size: 0.65rem;" onclick="deleteColor(${colorId ? colorId : `'${colorName.replace(/'/g, "\\'")}'`});" title="Delete Color"></button>
-          </span>`;
-        }
-
-        if (targetP) {
-          targetP.innerHTML = colorList;
-        }
-      }
-    };
-    xhr.send();
-  } catch (err) {
-    resultSpan.innerHTML = err.message;
-  }
-}
-
-function deleteColor(identifier) {
-  if (!identifier && identifier !== 0) return;
-
-  let param = (typeof identifier === 'number') ? ("id=" + identifier) : ("name=" + encodeURIComponent(identifier));
-  let url = urlBase + "?" + param;
-
-  let xhr = new XMLHttpRequest();
-  xhr.open("DELETE", url, true);
-  xhr.setRequestHeader("Authorization", "Bearer " + userId);
-  xhr.setRequestHeader("X-User-Id", userId);
-
-  try {
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4 && this.status === 200) {
-        searchColor();
-      }
-    };
-    xhr.send();
-  } catch (err) {
-    console.error(err);
-  }
+    actions.append(editButton, deleteButton);
+    item.append(details, actions);
+    list.appendChild(item);
+  });
 }
