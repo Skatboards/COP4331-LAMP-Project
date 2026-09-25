@@ -27,6 +27,10 @@ if ($method === 'POST') {
         require __DIR__ . '/handlers/create_user.php';
     }
 
+    if ($action === 'emailAuth' || $action === 'email_auth') {
+        require __DIR__ . '/handlers/email_auth.php';
+    }
+
     if ($action === 'logout') {
         $db = getDB();
         $userId = requireAuth($db);
@@ -46,7 +50,7 @@ if ($method === 'POST') {
     }
 
     if ($action !== 'createContact') {
-        respond(400, ['error' => 'POST action must be login, register, logout, addDirectoryContact, or createContact']);
+        respond(400, ['error' => 'POST action must be login, register, emailAuth, logout, addDirectoryContact, or createContact']);
     }
 }
 
