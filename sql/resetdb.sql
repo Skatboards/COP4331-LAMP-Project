@@ -14,6 +14,7 @@ USE `ContactAppDB`;
 
 -- Drop existing tables to ensure a clean state
 DROP TABLE IF EXISTS `Contacts`;
+DROP TABLE IF EXISTS `Email_Verifications`;
 DROP TABLE IF EXISTS `User_Sessions`;
 DROP TABLE IF EXISTS `Users`;
 
@@ -24,12 +25,15 @@ CREATE TABLE `Users` (
     `LastName` VARCHAR(50) NOT NULL DEFAULT '',
     `Username` VARCHAR(50) NOT NULL DEFAULT '',
     `Password` VARCHAR(255) NOT NULL DEFAULT '',
+    `Email` VARCHAR(254) NOT NULL DEFAULT '',
+    `Email_Verified` TINYINT(1) NOT NULL DEFAULT 0,
     `Role` VARCHAR(20) NOT NULL DEFAULT 'User',
     `Is_Disabled` TINYINT(1) NOT NULL DEFAULT 0,
     `Date_Created` DATETIME NOT NULL DEFAULT 19700101,
     `Date_Updated` DATETIME NOT NULL DEFAULT 19700101,
     PRIMARY KEY (`ID`),
-    INDEX `idx_users_username` (`Username`)
+    INDEX `idx_users_username` (`Username`),
+    UNIQUE KEY `uq_users_email` (`Email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `User_Sessions` (
@@ -41,6 +45,20 @@ CREATE TABLE `User_Sessions` (
     UNIQUE KEY `uq_user_sessions_token_hash` (`Token_Hash`),
     INDEX `idx_user_sessions_userid` (`User_ID`),
     FOREIGN KEY (`User_ID`) REFERENCES Users(`ID`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Create email verification token storage
+CREATE TABLE `Email_Verifications` (
+    `ID` INT NOT NULL AUTO_INCREMENT,
+    `Email_Verification_Token` CHAR(64) NOT NULL,
+    `Time_Created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `Time_Expires` DATETIME NOT NULL,
+    `Time_Consumed` DATETIME NULL DEFAULT NULL,
+    `User_ID` INT NOT NULL,
+    PRIMARY KEY (`ID`),
+    UNIQUE KEY `uq_email_verifications_token` (`Email_Verification_Token`),
+    INDEX `idx_email_verifications_userid` (`User_ID`),
+    FOREIGN KEY (`User_ID`) REFERENCES `Users`(`ID`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create Contacts Table
@@ -59,14 +77,14 @@ CREATE TABLE `Contacts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed Sample Users
-INSERT INTO `Users` (`FirstName`, `LastName`, `Username`, `Password`, `Role`, `Is_Disabled`) VALUES
-('Application', 'Administrator', 'root', '$2y$12$zbQYPTKFqRkOtfKZujRi4.DyPeHaofs3MMNuUYUS1NL5eDTo1mLwS', 'Admin', 0),
-('Rick', 'Leinecker', 'RickL', '$2y$12$wlZ0l9FaR3xO03pG4fUALe2h1oaBQpyxu.WALt7MNfZOYojk11i0u', 'User', 0),
-('Sam', 'Hill', 'SamH', '$2y$12$tgVfjk1AZTWE7PoZ6fizlOCMLUNd5ah8BEiRPX64d6uHuoDug1sL2', 'User', 0),
-('Alex', 'Morgan', 'alex.morgan', '$2y$12$Ff5qQCjNvtyovRR3EfYOVObGvDnBhVISjv1l8oJnhzTHFfHluhgwW', 'User', 0),
-('Jamie', 'Nguyen', 'jamie.nguyen', '$2y$12$CCxSsALSVuHsSwdupJy8EeKPPDIVBzRxlKpo5V5mn5mR.ETZwALjS', 'User', 0),
-('Riley', 'Johnson', 'riley.johnson', '$2y$12$a69exHc6OFZrBsqAB7jV6.BA1bAWiSxip5vjR9uA5V0B6XRj.XERq', 'User', 0),
-('Casey', 'Park', 'casey.park', '$2y$12$DE8WZ0p4iREJ2Wn1X7H1LetFg9eHI02WMytbQnnUKdFYlnUBbO2IO', 'User', 0);
+INSERT INTO `Users` (`FirstName`, `LastName`, `Username`, `Password`, `Email`, `Email_Verified`, `Role`, `Is_Disabled`) VALUES
+('Application', 'Administrator', 'root', '$2y$12$zbQYPTKFqRkOtfKZujRi4.DyPeHaofs3MMNuUYUS1NL5eDTo1mLwS', 'root@example.test', 0, 'Admin', 0),
+('Rick', 'Leinecker', 'RickL', '$2y$12$wlZ0l9FaR3xO03pG4fUALe2h1oaBQpyxu.WALt7MNfZOYojk11i0u', 'rick.leinecker@example.test', 0, 'User', 0),
+('Sam', 'Hill', 'SamH', '$2y$12$tgVfjk1AZTWE7PoZ6fizlOCMLUNd5ah8BEiRPX64d6uHuoDug1sL2', 'sam.hill@example.test', 0, 'User', 0),
+('Alex', 'Morgan', 'alex.morgan', '$2y$12$Ff5qQCjNvtyovRR3EfYOVObGvDnBhVISjv1l8oJnhzTHFfHluhgwW', 'alex.morgan@example.test', 0, 'User', 0),
+('Jamie', 'Nguyen', 'jamie.nguyen', '$2y$12$CCxSsALSVuHsSwdupJy8EeKPPDIVBzRxlKpo5V5mn5mR.ETZwALjS', 'jamie.nguyen@example.test', 0, 'User', 0),
+('Riley', 'Johnson', 'riley.johnson', '$2y$12$a69exHc6OFZrBsqAB7jV6.BA1bAWiSxip5vjR9uA5V0B6XRj.XERq', 'riley.johnson@example.test', 0, 'User', 0),
+('Casey', 'Park', 'casey.park', '$2y$12$DE8WZ0p4iREJ2Wn1X7H1LetFg9eHI02WMytbQnnUKdFYlnUBbO2IO', 'casey.park@example.test', 0, 'User', 0);
 
 -- Seed sample contacts. User IDs 1–4 are the original test accounts; 5–8
 -- are the additional accounts above. Test passwords are listed with Users.

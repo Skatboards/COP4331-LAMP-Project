@@ -90,19 +90,19 @@ function apiRequest(method, path = '', payload = null) {
 }
 
 function doLogin() {
-  const username = getElement('loginName')?.value.trim() || '';
+  const email = getElement('loginName')?.value.trim() || '';
   const password = getElement('loginPassword')?.value || '';
   clearMessage('authResult');
-  if (!username || !password) {
-    showMessage('authResult', 'Enter your username and password.');
+  if (!email || !password) {
+    showMessage('authResult', 'Enter your email and password.');
     return;
   }
 
   setBusy('loginButton', true, 'Signing in...');
-  apiRequest('POST', '', { action: 'login', username, password })
+  apiRequest('POST', '', { action: 'login', email, password })
     .then((response) => {
       userId = Number(response.id) || 0;
-      if (userId < 1) throw new Error('The username or password is incorrect.');
+      if (userId < 1) throw new Error('The email or password is incorrect.');
       firstName = response.firstName || '';
       lastName = response.lastName || '';
       authToken = response.token || '';

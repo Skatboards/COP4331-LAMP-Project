@@ -19,12 +19,15 @@ CREATE TABLE IF NOT EXISTS `Users` (
     `LastName` VARCHAR(50) NOT NULL DEFAULT '',
     `Username` VARCHAR(50) NOT NULL DEFAULT '',
     `Password` VARCHAR(255) NOT NULL DEFAULT '',
+    `Email` VARCHAR(254) NOT NULL DEFAULT '',
+    `Email_Verified` TINYINT(1) NOT NULL DEFAULT 0,
     `Role` VARCHAR(20) NOT NULL DEFAULT 'User',
     `Is_Disabled` TINYINT(1) NOT NULL DEFAULT 0,
     `Date_Created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `Date_Updated` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`ID`),
-    UNIQUE KEY `uq_users_username` (`Username`),
+    INDEX `idx_users_username` (`Username`),
+    UNIQUE KEY `uq_users_email` (`Email`),
     INDEX `idx_users_role` (`Role`),
     INDEX `idx_users_disabled` (`Is_Disabled`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -41,7 +44,21 @@ CREATE TABLE IF NOT EXISTS `User_Sessions` (
     FOREIGN KEY (`User_ID`) REFERENCES `Users`(`ID`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Create Contacts Table
+-- 4. Create email verification token storage
+CREATE TABLE IF NOT EXISTS `Email_Verifications` (
+    `ID` INT NOT NULL AUTO_INCREMENT,
+    `Email_Verification_Token` CHAR(64) NOT NULL,
+    `Time_Created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `Time_Expires` DATETIME NOT NULL,
+    `Time_Consumed` DATETIME NULL DEFAULT NULL,
+    `User_ID` INT NOT NULL,
+    PRIMARY KEY (`ID`),
+    UNIQUE KEY `uq_email_verifications_token` (`Email_Verification_Token`),
+    INDEX `idx_email_verifications_userid` (`User_ID`),
+    FOREIGN KEY (`User_ID`) REFERENCES `Users`(`ID`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. Create Contacts Table
 CREATE TABLE IF NOT EXISTS `Contacts` (
     `ID` INT NOT NULL AUTO_INCREMENT,
     `First_Name` VARCHAR(50) NOT NULL DEFAULT '',
@@ -56,7 +73,7 @@ CREATE TABLE IF NOT EXISTS `Contacts` (
     FOREIGN KEY (`User_ID`) REFERENCES `Users`(`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Create Application Database User & Grant Permissions
+-- 6. Create Application Database User & Grant Permissions
 CREATE USER IF NOT EXISTS 'ContactAppUser'@'localhost' IDENTIFIED BY 'WeLoveCOP4331!';
 GRANT ALL PRIVILEGES ON `ContactAppDB`.* TO 'ContactAppUser'@'localhost';
 
