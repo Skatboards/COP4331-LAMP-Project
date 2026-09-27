@@ -27,8 +27,14 @@ if ($method === 'POST') {
         require __DIR__ . '/handlers/create_user.php';
     }
 
-    if ($action === 'emailAuth' || $action === 'email_auth') {
-        require __DIR__ . '/handlers/email_auth.php';
+    if ($action === 'createVerification') {
+        $db = getDB();
+        require __DIR__ . '/handlers/create_verification.php';
+    }
+
+    if ($action === 'consumeVerification') {
+        $db = getDB();
+        require __DIR__ . '/handlers/consume_verification.php';
     }
 
     if ($action === 'logout') {
@@ -50,7 +56,7 @@ if ($method === 'POST') {
     }
 
     if ($action !== 'createContact') {
-        respond(400, ['error' => 'POST action must be login, register, emailAuth, logout, addDirectoryContact, or createContact']);
+        respond(400, ['error' => 'Invalid POST action']);
     }
 }
 

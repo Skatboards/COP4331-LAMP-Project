@@ -15,7 +15,7 @@ if (!is_string($firstName) || !is_string($lastName) ||
 $firstName = clean($firstName);
 $lastName = clean($lastName);
 $username = clean($username);
-$email = clean($email);
+$email = normalizeEmail($email);
 
 if ($firstName === '' || $lastName === '' || $username === '' || $password === '' || $email === '') {
     respond(400, ['error' => 'First name, last name, username, password, and email are required']);
@@ -40,8 +40,10 @@ foreach ($limits as $field => [$value, $maxLength]) {
 
 $check = $db->prepare('SELECT ID FROM Users WHERE Email = :email LIMIT 1');
 $check->execute([':email' => $email]);
+
 if ($check->fetch()) {
     // Do not disclose whether an email address belongs to an account.
+    error_log('Registration verification email not sent: reason=account_already_exists email_hash=' . hash('sha256', $email));
     respond(202, ['message' => 'If an account exists for this email address, a verification email has been sent.']);
 }
 
@@ -50,16 +52,28 @@ $stmt = $db->prepare(
     "INSERT INTO Users (FirstName, LastName, Username, Password, Email, Email_Verified, Role, Is_Disabled)
      VALUES (:first_name, :last_name, :username, :password, :email, 0, 'User', 0)"
 );
-$stmt->execute([
-    ':first_name' => $firstName,
-    ':last_name'  => $lastName,
-    ':username'   => $username,
-    ':password'   => $passwordHash,
-    ':email'      => $email,
-]);
+
+try {
+    $stmt->execute([
+        ':first_name' => $firstName,
+        ':last_name'  => $lastName,
+        ':username'   => $username,
+        ':password'   => $passwordHash,
+        ':email'      => $email,
+    ]);
+} catch (Throwable $e) {
+    error_log('User registration error: ' . $e->getMessage());
+    respond(500, ['error' => 'Unable to create account']);
+}
+
+$newUserId = (int) $db->lastInsertId();
+
+// attempt to send verification email
+$suppressVerificationResponse = true;
+require __DIR__ . '/create_verification.php';
 
 respond(201, [
-    'id'        => (int) $db->lastInsertId(),
+    'id'        => $newUserId,
     'firstName' => $firstName,
     'lastName'  => $lastName,
     'username'  => $username,
