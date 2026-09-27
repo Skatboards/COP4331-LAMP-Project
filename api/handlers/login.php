@@ -5,7 +5,7 @@ $password = $body['password'] ?? '';
 if (!is_string($email) || !is_string($password)) {
     respond(400, ['error' => 'Email and password are required']);
 }
-$email = clean($email);
+$email = normalizeEmail($email);
 if ($email === '' || $password === '') {
     respond(400, ['error' => 'Email and password are required']);
 }
@@ -14,7 +14,7 @@ if ($email === '' || $password === '') {
 $stmt = $db->prepare(
     'SELECT ID AS id, FirstName AS firstName, LastName AS lastName,
             Username AS username, Email AS email, Password AS passwordHash,
-            Role AS role, Is_Disabled AS isDisabled
+            Email_Verified AS emailVerified, Role AS role, Is_Disabled AS isDisabled
      FROM Users
      WHERE Email = :email
      LIMIT 1'
@@ -22,8 +22,10 @@ $stmt = $db->prepare(
 $stmt->execute([':email' => $email]);
 $user = $stmt->fetch();
 
-if (!$user || (int)$user['isDisabled'] === 1 || !password_verify($password, $user['passwordHash'])) {
-    respond(401, ['error' => 'Invalid email or password']);
+if (!$user || (int)$user['isDisabled'] === 1 ||
+    (int)$user['emailVerified'] !== 1 ||
+    !password_verify($password, $user['passwordHash'])) {
+    respond(401, ['error' => 'Invalid credentials']);
 }
 
 $token = bin2hex(random_bytes(32));

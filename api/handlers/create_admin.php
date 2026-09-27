@@ -3,7 +3,7 @@ $firstName = clean($body['firstName'] ?? '');
 $lastName = clean($body['lastName'] ?? '');
 $username = clean($body['username'] ?? '');
 $password = $body['password'] ?? '';
-$email = clean($body['email'] ?? '');
+$email = normalizeEmail($body['email'] ?? '');
 
 if (!is_string($firstName) || !is_string($lastName) || !is_string($username) ||
     !is_string($password) || !is_string($email)) {
