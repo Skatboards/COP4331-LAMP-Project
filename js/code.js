@@ -90,19 +90,19 @@ function apiRequest(method, path = '', payload = null) {
 }
 
 function doLogin() {
-  const username = getElement('loginName')?.value.trim() || '';
+  const email = getElement('loginEmail')?.value.trim() || '';
   const password = getElement('loginPassword')?.value || '';
   clearMessage('authResult');
-  if (!username || !password) {
-    showMessage('authResult', 'Enter your username and password.');
+  if (!email || !password) {
+    showMessage('authResult', 'Enter your email and password.');
     return;
   }
 
   setBusy('loginButton', true, 'Signing in...');
-  apiRequest('POST', '', { action: 'login', username, password })
+  apiRequest('POST', '', { action: 'login', email, password })
     .then((response) => {
       userId = Number(response.id) || 0;
-      if (userId < 1) throw new Error('The username or password is incorrect.');
+      if (userId < 1) throw new Error('The email or password is incorrect.');
       firstName = response.firstName || '';
       lastName = response.lastName || '';
       authToken = response.token || '';
@@ -119,9 +119,10 @@ function doRegister() {
   const first = getElement('registerFirstName')?.value.trim() || '';
   const last = getElement('registerLastName')?.value.trim() || '';
   const username = getElement('registerUsername')?.value.trim() || '';
+  const email = getElement('registerEmail')?.value.trim() || '';
   const password = getElement('registerPassword')?.value || '';
   clearMessage('authResult');
-  if (!first || !last || !username || !password) {
+  if (!first || !last || !username || !email || !password) {
     showMessage('authResult', 'Complete all registration fields.');
     return;
   }
@@ -132,11 +133,12 @@ function doRegister() {
     firstName: first,
     lastName: last,
     username,
+    email,
     password
   })
     .then(() => {
       showLogin();
-      showMessage('authResult', 'Account created. You can sign in now.', 'success');
+      showMessage('authResult', 'Account created. Check your email to verify it before signing in.', 'success');
     })
     .catch((error) => showMessage('authResult', error.message))
     .finally(() => setBusy('registerButton', false));
@@ -145,7 +147,7 @@ function doRegister() {
 function showLogin() {
   getElement('loginPanel')?.classList.remove('d-none');
   getElement('registerPanel')?.classList.add('d-none');
-  getElement('loginName')?.focus();
+  getElement('loginEmail')?.focus();
   clearMessage('authResult');
 }
 

@@ -119,6 +119,23 @@ function clean($data) {
 }
 
 /**
+ * Normalize an account email for consistent validation and lookup.
+ */
+function normalizeEmail($email) {
+    if (!is_string($email)) {
+        return $email;
+    }
+
+    $email = trim($email);
+    $separator = strrpos($email, '@');
+    if ($separator === false) {
+        return $email;
+    }
+
+    return strtolower(substr($email, 0, $separator)) . substr($email, $separator);
+}
+
+/**
  * Validates and normalizes contact fields from JSON/form data.
  * First or last name is required; email and phone are optional.
  *
