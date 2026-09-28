@@ -95,7 +95,7 @@ $verificationParts = $verificationBase !== '' ? parse_url($verificationBase) : f
 $validVerificationUrl = is_array($verificationParts)
     && (strtolower((string) ($verificationParts['scheme'] ?? '')) === 'https')
     && !empty($verificationParts['host'])
-    && !isset($verificationParts['user'], $verificationParts['pass'], $verificationParts['fragment'])
+    && !isset($verificationParts['user'], $verificationParts['pass'], $verificationParts['query'], $verificationParts['fragment'])
     && filter_var($verificationBase, FILTER_VALIDATE_URL) !== false;
 
 if (!$validVerificationUrl) {
@@ -107,8 +107,8 @@ if (!$validVerificationUrl) {
     respond(500, ['error' => 'Email verification is not configured']);
 }
 
-$separator = str_contains($verificationBase, '?') ? '&' : '?';
-$verificationLink = $verificationBase . $separator . 'token=' . rawurlencode($rawToken);
+$verificationPage = rtrim($verificationBase, '/') . '/verify.html';
+$verificationLink = $verificationPage . '#token=' . rawurlencode($rawToken);
 
 $mail = new PHPMailer(true);
 try {
