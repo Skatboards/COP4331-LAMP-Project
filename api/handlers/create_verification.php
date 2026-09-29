@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
 
 $email = $body['email'] ?? '';
 if (!is_string($email)) {
@@ -114,6 +115,7 @@ $mail = new PHPMailer(true);
 try {
     $smtpHost = getenv('MAIL_SERVER_HOST');
     $smtpPort = (int) (getenv('EMAIL_SERVER_PORT') ?: 587);
+    $smtpEncryption = strtolower(trim((string) getenv('EMAIL_SERVER_ENCRYPTION')));
     $smtpUser = getenv('EMAIL_SERVER_USER');
     $smtpPassword = getenv('EMAIL_SERVER_PASSWORD');
     $fromAddress = getenv('EMAIL_FROM');
@@ -127,8 +129,21 @@ try {
     $mail->SMTPAuth = true;
     $mail->Username = $smtpUser;
     $mail->Password = $smtpPassword;
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+    if ($smtpEncryption === '') {
+        $smtpEncryption = in_array($smtpPort, [465, 2465], true) ? 'ssl' : 'starttls';
+    }
+    if ($smtpEncryption === 'ssl' || $smtpEncryption === 'smtps') {
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+    } elseif ($smtpEncryption === 'starttls' || $smtpEncryption === 'tls') {
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+    } else {
+        throw new Exception('EMAIL_SERVER_ENCRYPTION must be ssl or starttls');
+    }
     $mail->Port = $smtpPort;
+    $mail->SMTPDebug = SMTP::DEBUG_CONNECTION;
+    $mail->Debugoutput = static function ($message, $level) {
+        error_log('SMTP debug level ' . $level . ': ' . $message);
+    };
     $mail->isHTML(true);
 
     $mail->setFrom($fromAddress);
@@ -153,7 +168,7 @@ try {
     }
 
 } catch (Throwable $e) {
-    error_log('Verification email error: ' . ($mail->ErrorInfo ?: $e->getMessage()));
+    error_log('Verification email error (SMTP::DEBUG_CONNECTION): ' . ($mail->ErrorInfo ?: $e->getMessage()));
     if ($db->inTransaction()) {
         $db->rollBack();
     }

@@ -18,7 +18,9 @@ $stmt = $db->prepare(
              FirstName AS firstName, LastName AS lastName,
              '' AS email, '' AS phoneNumber, Username AS username
          FROM Users
-         WHERE (:user_search = :user_empty_search OR FirstName LIKE :user_first_name
+         WHERE Role != 'Admin'
+             AND ID != :current_user_id
+             AND (:user_search = :user_empty_search OR FirstName LIKE :user_first_name
              OR LastName LIKE :user_last_name
              OR Username LIKE :user_username)
          ORDER BY lastName, firstName, sourceId"
@@ -31,6 +33,7 @@ $stmt->execute([
     ':full_name' => $like,
     ':email' => $like,
     ':phone' => $like,
+    ':current_user_id' => $userId,
     ':user_search' => $search,
     ':user_empty_search' => '',
     ':user_first_name' => $like,
