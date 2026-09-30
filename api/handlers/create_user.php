@@ -49,8 +49,8 @@ if ($check->fetch()) {
 
 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 $stmt = $db->prepare(
-    "INSERT INTO Users (FirstName, LastName, Username, Password, Email, Email_Verified, Role, Is_Disabled)
-     VALUES (:first_name, :last_name, :username, :password, :email, 0, 'User', 0)"
+    "INSERT INTO Users (FirstName, LastName, Username, Password, Email, Email_Verified, Role, Is_Disabled, Date_Created, Date_Updated)
+     VALUES (:first_name, :last_name, :username, :password, :email, 0, 'User', 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())"
 );
 
 try {

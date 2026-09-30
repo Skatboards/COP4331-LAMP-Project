@@ -22,7 +22,8 @@ $contact = readContactInput(array_merge($existing, getRequestBody()));
 $stmt = $db->prepare(
     'UPDATE Contacts
      SET First_Name = :first_name, Last_Name = :last_name,
-         Email = :email, Phone_Number = :phone
+         Email = :email, Phone_Number = :phone,
+         Date_Updated = UTC_TIMESTAMP()
      WHERE ID = :id AND User_ID = :user_id'
 );
 $stmt->execute([
