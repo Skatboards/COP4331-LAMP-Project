@@ -78,13 +78,13 @@ CREATE TABLE `Contacts` (
 
 -- Seed Sample Users
 INSERT INTO `Users` (`FirstName`, `LastName`, `Username`, `Password`, `Email`, `Email_Verified`, `Role`, `Is_Disabled`) VALUES
-('Application', 'Administrator', 'root', '$2y$12$zbQYPTKFqRkOtfKZujRi4.DyPeHaofs3MMNuUYUS1NL5eDTo1mLwS', 'root@example.test', 0, 'Admin', 0),
-('Rick', 'Leinecker', 'RickL', '$2y$12$wlZ0l9FaR3xO03pG4fUALe2h1oaBQpyxu.WALt7MNfZOYojk11i0u', 'rick.leinecker@example.test', 0, 'User', 0),
-('Sam', 'Hill', 'SamH', '$2y$12$tgVfjk1AZTWE7PoZ6fizlOCMLUNd5ah8BEiRPX64d6uHuoDug1sL2', 'sam.hill@example.test', 0, 'User', 0),
-('Alex', 'Morgan', 'alex.morgan', '$2y$12$Ff5qQCjNvtyovRR3EfYOVObGvDnBhVISjv1l8oJnhzTHFfHluhgwW', 'alex.morgan@example.test', 0, 'User', 0),
-('Jamie', 'Nguyen', 'jamie.nguyen', '$2y$12$CCxSsALSVuHsSwdupJy8EeKPPDIVBzRxlKpo5V5mn5mR.ETZwALjS', 'jamie.nguyen@example.test', 0, 'User', 0),
-('Riley', 'Johnson', 'riley.johnson', '$2y$12$a69exHc6OFZrBsqAB7jV6.BA1bAWiSxip5vjR9uA5V0B6XRj.XERq', 'riley.johnson@example.test', 0, 'User', 0),
-('Casey', 'Park', 'casey.park', '$2y$12$DE8WZ0p4iREJ2Wn1X7H1LetFg9eHI02WMytbQnnUKdFYlnUBbO2IO', 'casey.park@example.test', 0, 'User', 0);
+('Application', 'Administrator', 'root', '$2y$12$zbQYPTKFqRkOtfKZujRi4.DyPeHaofs3MMNuUYUS1NL5eDTo1mLwS', 'root@example.test', 1, 'Admin', 0),
+('Rick', 'Leinecker', 'RickL', '$2y$12$wlZ0l9FaR3xO03pG4fUALe2h1oaBQpyxu.WALt7MNfZOYojk11i0u', 'rick.leinecker@example.test', 1, 'User', 0),
+('Sam', 'Hill', 'SamH', '$2y$12$tgVfjk1AZTWE7PoZ6fizlOCMLUNd5ah8BEiRPX64d6uHuoDug1sL2', 'sam.hill@example.test', 1, 'User', 0),
+('Alex', 'Morgan', 'alex.morgan', '$2y$12$Ff5qQCjNvtyovRR3EfYOVObGvDnBhVISjv1l8oJnhzTHFfHluhgwW', 'alex.morgan@example.test', 1, 'User', 0),
+('Jamie', 'Nguyen', 'jamie.nguyen', '$2y$12$CCxSsALSVuHsSwdupJy8EeKPPDIVBzRxlKpo5V5mn5mR.ETZwALjS', 'jamie.nguyen@example.test', 1, 'User', 0),
+('Riley', 'Johnson', 'riley.johnson', '$2y$12$a69exHc6OFZrBsqAB7jV6.BA1bAWiSxip5vjR9uA5V0B6XRj.XERq', 'riley.johnson@example.test', 1, 'User', 0),
+('Casey', 'Park', 'casey.park', '$2y$12$DE8WZ0p4iREJ2Wn1X7H1LetFg9eHI02WMytbQnnUKdFYlnUBbO2IO', 'casey.park@example.test', 1, 'User', 0);
 
 -- Seed sample contacts. User IDs 1–4 are the original test accounts; 5–8
 -- are the additional accounts above. Test passwords are listed with Users.

@@ -38,12 +38,36 @@ foreach ($limits as $field => [$value, $maxLength]) {
     }
 }
 
-$check = $db->prepare('SELECT ID FROM Users WHERE Email = :email LIMIT 1');
+$check = $db->prepare('SELECT ID, Email_Verified FROM Users WHERE Email = :email LIMIT 1');
 $check->execute([':email' => $email]);
 
-if ($check->fetch()) {
+$existingUser = $check->fetch();
+if ($existingUser) {
+    $emailLogId = hash('sha256', $email);
+
+    if ((int) $existingUser['Email_Verified'] === 0) {
+        $activeToken = $db->prepare(
+            'SELECT ID
+             FROM Email_Verifications
+             WHERE User_ID = :user_id
+               AND Time_Consumed IS NULL
+               AND Time_Expires > UTC_TIMESTAMP()
+             LIMIT 1'
+        );
+        $activeToken->execute([':user_id' => $existingUser['ID']]);
+
+        if (!$activeToken->fetch()) {
+            // No active token remains, so issue a replacement verification
+            // email while preserving the generic response.
+            require __DIR__ . '/create_verification.php';
+        }
+
+        error_log('Registration verification email not sent: reason=active_token email_hash=' . $emailLogId);
+    } else {
+        error_log('Registration verification email not sent: reason=already_verified email_hash=' . $emailLogId);
+    }
+
     // Do not disclose whether an email address belongs to an account.
-    error_log('Registration verification email not sent: reason=account_already_exists email_hash=' . hash('sha256', $email));
     respond(202, ['message' => 'If an account exists for this email address, a verification email has been sent.']);
 }
 
