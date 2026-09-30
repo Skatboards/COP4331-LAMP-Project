@@ -33,7 +33,11 @@ try {
 
     $consume->execute([':verification_id' => $verification['verificationId']]);
 
-    $user = $db->prepare('UPDATE Users SET Email_Verified = 1 WHERE ID = :user_id');
+    $user = $db->prepare(
+        'UPDATE Users
+         SET Email_Verified = 1, Date_Updated = UTC_TIMESTAMP()
+         WHERE ID = :user_id'
+    );
     $user->execute([':user_id' => $verification['userId']]);
 
     $db->commit();
