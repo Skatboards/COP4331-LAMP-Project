@@ -297,7 +297,7 @@ function openCreateContact() {
 function openEditContact(id) {
   apiRequest('GET', `?id=${encodeURIComponent(id)}`)
     .then((response) => {
-      const contact = response.contact || (Array.isArray(response.contacts) ? response.contacts[0] : null);
+      const contact = response.contact || response;
       if (!contact) throw new Error('Contact not found.');
       editingContactId = Number(contact.id || id);
       getElement('contactFirstName').value = contact.firstName || '';
@@ -540,9 +540,10 @@ function createAdmin() {
     firstName: getElement('adminFirstName')?.value.trim() || '',
     lastName: getElement('adminLastName')?.value.trim() || '',
     username: getElement('adminUsername')?.value.trim() || '',
+    email: getElement('adminEmail')?.value.trim() || '',
     password: getElement('adminPassword')?.value || ''
   };
-  if (!payload.firstName || !payload.lastName || !payload.username || !payload.password) {
+  if (!payload.firstName || !payload.lastName || !payload.username || !payload.email || !payload.password) {
     showMessage('adminFormStatus', 'Complete every Admin account field.');
     return;
   }
